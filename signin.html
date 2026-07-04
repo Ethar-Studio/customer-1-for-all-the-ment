@@ -130,7 +130,7 @@
     async function onResend(e) {
       const b = e.currentTarget; b.disabled = true;
       try { await Store.resendVerification(); vMsg('verify.sent', true); }
-      catch (_) { vMsg('auth.err.generic', false); }
+      catch (err) { vMsg(err && err.code === 'auth/too-many-requests' ? 'auth.err.toomany' : 'auth.err.generic', false); }
       b.disabled = false;
     }
     async function onRecheck(e) {

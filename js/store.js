@@ -106,6 +106,7 @@
           if (e.code === 'auth/email-already-in-use') throw new Error('auth.err.exists');
           if (e.code === 'auth/invalid-email') throw new Error('auth.err.email');
           if (e.code === 'auth/weak-password') throw new Error('auth.err.password');
+          if (e.code === 'auth/too-many-requests') throw new Error('auth.err.toomany');
           throw new Error('auth.err.generic');
         }
         /* profile + users-doc are nice-to-have — never fail the signup over them */
@@ -140,6 +141,7 @@
           if (e.code === 'auth/user-not-found') throw new Error('auth.err.nouser');
           if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') throw new Error('auth.err.wrong');
           if (e.code === 'auth/invalid-email') throw new Error('auth.err.email');
+          if (e.code === 'auth/too-many-requests') throw new Error('auth.err.toomany');
           throw new Error('auth.err.generic');
         }
         /* build the session now (don't wait on the auth-state listener) */
@@ -149,8 +151,6 @@
           const doc = await raceTimeout(db.collection('users').doc(u.uid).get(), 6000);
           if (doc.exists) { const d = doc.data(); phone = d.phone || ''; name = d.name || name; }
         } catch (_) {}
-        /* not verified yet → resend the link so they always have a fresh one */
-        if (!u.emailVerified) { try { await u.sendEmailVerification(); } catch (_) {} }
         this._fireAuth({ uid: u.uid, name, email, phone, emailVerified: u.emailVerified, isAdmin: false });
         return u.emailVerified;
       } else {

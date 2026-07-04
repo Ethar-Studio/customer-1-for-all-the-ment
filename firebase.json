@@ -6,6 +6,11 @@
       ".firebaserc",
       ".gitignore",
       "README.md",
+      "GUIDE.md",
+      "skills-lock.json",
+      "firestore.rules",
+      "firestore.indexes.json",
+      "tests.html",
       "**/.*",
       "**/node_modules/**",
       ".agents/**",
@@ -13,5 +18,9 @@
     ],
     "rewrites": [],
     "cleanUrls": true
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

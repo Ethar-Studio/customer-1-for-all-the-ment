@@ -9,14 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
-  <script src="js/firebase-config.js" defer></script>
-  <script src="js/data.js" defer></script>
-  <script src="js/i18n.js" defer></script>
-  <script src="js/store.js" defer></script>
-  <script src="js/app.js" defer></script>
+  <script src="js/boot.js" defer></script>
 </head>
 <body data-page="account">
 
@@ -33,11 +26,6 @@
     </section>
 
     <section class="rise-in d2" style="padding-block-end:clamp(64px,9vw,140px);max-width:860px">
-      <!-- shown only when the signed-in email is not verified yet -->
-      <div id="verify-banner" class="form-msg" style="display:none;margin-block-end:20px">
-        <span data-i18n="verify.banner"></span>
-        <button type="button" class="btn btn--ghost btn--sm" id="btn-acc-resend" style="margin-inline-start:12px"><span data-i18n="verify.resend">Resend email</span></button>
-      </div>
       <div id="loyalty-card"></div>
       <div class="res-list" id="mine-list"></div>
     </section>
@@ -56,17 +44,6 @@
         await Store.signOut();
         window.location.replace('index.html');
       });
-      /* nudge unverified customers to verify (they can't book until they do) */
-      if (!Store.currentUser.isAdmin && Store.currentUser.emailVerified === false) {
-        const banner = document.getElementById('verify-banner');
-        banner.dataset.show = 'true';
-        banner.style.display = 'block';
-        document.getElementById('btn-acc-resend').addEventListener('click', async (e) => {
-          const b = e.currentTarget; b.disabled = true;
-          try { await Store.resendVerification(); b.querySelector('span').textContent = t('verify.sent'); }
-          catch (_) { b.disabled = false; }
-        });
-      }
       renderMine();
     };
     window.onLanguageChange = function () { if (Store._ready && Store.currentUser) renderMine(); };
@@ -115,9 +92,14 @@
         const services = (r.serviceIds || []).map((id) => serviceById(id) ? tv(serviceById(id).name) : id).join(' + ');
         const barber = barberById(r.barberId) ? tv(barberById(r.barberId).name) : r.barberId;
         const arming = cancelArm === r.ref;
-        /* only upcoming (pending/confirmed) visits can be cancelled — a done
-           haircut is history and keeps its loyalty stamp */
-        const cancellable = r.status === 'pending' || r.status === 'confirmed';
+        /* only upcoming (pending/confirmed) visits can be cancelled, and only
+           until 2 hours before the slot — after that the page says to call
+           the shop. A done haircut is history and keeps its loyalty stamp. */
+        const [ry, rm, rd] = String(r.date || '').split('-').map(Number);
+        const [rh, rmin] = String(r.time || '').split(':').map(Number);
+        const startsAt = new Date(ry, (rm || 1) - 1, rd || 1, rh || 0, rmin || 0);
+        const cancellable = (r.status === 'pending' || r.status === 'confirmed')
+          && startsAt.getTime() - Date.now() > 2 * 60 * 60 * 1000;
         return `
           <div class="res-item">
             <div>

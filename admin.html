@@ -9,14 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
-  <script src="js/firebase-config.js" defer></script>
-  <script src="js/data.js" defer></script>
-  <script src="js/i18n.js" defer></script>
-  <script src="js/store.js" defer></script>
-  <script src="js/app.js" defer></script>
+  <script src="js/boot.js" defer></script>
 </head>
 <body data-page="admin">
 
@@ -327,7 +320,7 @@
         [ALL.length, 'admin.stat.total'],
         [active.filter((r) => r.date >= today).length, 'admin.stat.upcoming'],
         [active.filter((r) => r.date === today).length, 'admin.stat.today'],
-        [fmtPrice(active.reduce((a, r) => a + (r.total || 0), 0)), 'admin.stat.revenue'],
+        [fmtPrice(active.reduce((a, r) => a + (Number(r.total) || 0), 0)), 'admin.stat.revenue'],
       ];
       document.getElementById('stat-strip').innerHTML = cells.map(([v, k]) => `
         <div class="stat-cell">

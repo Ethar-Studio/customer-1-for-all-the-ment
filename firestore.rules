@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // exact whitelist — must match ADMIN_USERNAMES in js/firebase-config.js.
+    // never a wildcard: account signup is public, so anyone could otherwise
+    // register an unlisted @staff... email and become admin.
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.email in ['admin@staff.forallmen.app'];
+    }
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /reservations/{id} {
+      // create: verified email, own uid, must start as 'pending' (blocks
+      // forging pre-completed bookings to farm loyalty stamps), and every
+      // field must be a sane type — the admin dashboard renders this data,
+      // so e.g. `total` must be a number, never a string of HTML.
+      allow create: if request.auth != null
+                    && request.auth.token.email_verified == true
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.total is number
+                    && request.resource.data.barberId is string
+                    && request.resource.data.date is string
+                    && request.resource.data.time is string
+                    && request.resource.data.serviceIds is list
+                    && request.resource.data.serviceIds.size() <= 20
+                    && request.resource.data.notes is string
+                    && request.resource.data.notes.size() <= 500;
+      // privacy: customers read ONLY their own bookings; admins read all
+      allow read: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
+      // owners may ONLY cancel an upcoming booking (status -> 'cancelled');
+      // every other change (confirm / mark done / edit) is admin-only
+      allow update: if isAdmin() ||
+        (request.auth != null && resource.data.uid == request.auth.uid
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+         && request.resource.data.status == 'cancelled'
+         && resource.data.status in ['pending', 'confirmed']);
+      allow delete: if isAdmin();
+    }
+
+    match /slots/{slotId} {
+      // slim mirror of taken times (barber/date/time only, no personal data).
+      // everyone signed-in reads it for the calendar; a slot can be created
+      // once and never overwritten -> the server itself rejects double booking.
+      // the doc id must equal barberId_date_time so a slot can only claim the
+      // exact time it names, and no stray fields are allowed.
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.auth.token.email_verified == true
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['barberId', 'date', 'time', 'uid'])
+                    && slotId == request.resource.data.barberId + '_' + request.resource.data.date + '_' + request.resource.data.time;
+      allow delete: if isAdmin() ||
+        (request.auth != null && resource.data.uid == request.auth.uid);
+    }
+
+    match /availability/{barberId} {
+      // customers read barber day-off / limited-hours; only admins edit it
+      allow read:  if request.auth != null;
+      allow write: if isAdmin();
+    }
+  }
+}

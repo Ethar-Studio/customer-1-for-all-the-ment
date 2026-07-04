@@ -6,8 +6,12 @@
 
 /* --- tiny helpers --- */
 window.esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-/* Returns HTML — the official riyal symbol as a masked <span class="sar"> */
-window.fmtPrice = (n) => n + ' <span class="sar" role="img" aria-label="' + (window.LANG === 'ar' ? 'ريال سعودي' : 'Saudi riyal') + '"></span>';
+/* Returns HTML — the official riyal symbol as a masked <span class="sar">.
+   Coerces to a number: stored data must never reach innerHTML as markup. */
+window.fmtPrice = (n) => {
+  const v = Number(n);
+  return (Number.isFinite(v) ? v : 0) + ' <span class="sar" role="img" aria-label="' + (window.LANG === 'ar' ? 'ريال سعودي' : 'Saudi riyal') + '"></span>';
+};
 window.fmtWhen = (dateIso, time) => {
   const [y, m, d] = dateIso.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
@@ -116,7 +120,7 @@ function updateAuthChip() {
 }
 
 /* --- boot --- */
-document.addEventListener('DOMContentLoaded', () => {
+function bootChrome() {
   const isAdminPage = document.body.dataset.page === 'admin';
   const header = document.querySelector('.site-header');
   if (header) header.innerHTML = isAdminPage ? chromeHeaderAdmin() : chromeHeader();
@@ -144,4 +148,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof window.PageInit === 'function') window.PageInit();
     }
   });
-});
+}
+
+/* js/boot.js injects the module scripts dynamically, so app.js can execute
+   after DOMContentLoaded has already fired — run immediately in that case. */
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootChrome);
+else bootChrome();

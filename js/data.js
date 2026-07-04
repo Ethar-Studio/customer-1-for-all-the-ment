@@ -17,10 +17,10 @@ window.loyaltyStatus = function (completedCount) {
   return { stamps, goal: window.LOYALTY.goal, freeEarned: stamps === window.LOYALTY.goal };
 };
 
-/* does a reservation count as a completed haircut? */
+/* does a reservation count as a completed haircut? (always a real boolean) */
 window.isCompletedHaircut = function (r) {
-  return r && r.status === 'completed' &&
-    (r.serviceIds || []).some((id) => window.LOYALTY.haircutServices.includes(id));
+  return !!(r && r.status === 'completed' &&
+    (r.serviceIds || []).some((id) => window.LOYALTY.haircutServices.includes(id)));
 };
 
 window.BARBERS = [

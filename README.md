@@ -31,7 +31,7 @@ The live keys are already in [js/firebase-config.js](js/firebase-config.js). Two
 1. **Authentication → Sign-in method → Email/Password → Enable.**
 2. **Firestore Database → Create database** → **Production mode** → pick a location → Create.
 
-Then paste the rules below into **Firestore → Rules** and **Publish**:
+The security rules live in **`firestore.rules`** (indexes in `firestore.indexes.json`) and deploy with `firebase deploy --only firestore` — that's the source of truth. The same rules are reproduced below for reference; publish them by hand in **Firestore → Rules** only if you're not using the CLI:
 
 ```
 rules_version = '2';
@@ -48,12 +48,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     match /reservations/{id} {
-      // create: verified email, own uid, and must start as 'pending'
-      // (blocks forging pre-completed bookings to farm loyalty stamps)
+      // create: verified email, own uid, must start as 'pending' (blocks
+      // forging pre-completed bookings to farm loyalty stamps), and the
+      // fields must be sane types — the admin dashboard renders this data,
+      // so e.g. `total` must be a number, never a string of HTML
       allow create: if request.auth != null
                     && request.auth.token.email_verified == true
                     && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.status == 'pending';
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.total is number
+                    && request.resource.data.barberId is string
+                    && request.resource.data.date is string
+                    && request.resource.data.time is string
+                    && request.resource.data.serviceIds is list
+                    && request.resource.data.notes is string
+                    && request.resource.data.notes.size() <= 500;
       // privacy: customers read ONLY their own bookings; admins read all
       allow read: if request.auth != null &&
         (resource.data.uid == request.auth.uid || isAdmin());
@@ -69,11 +78,15 @@ service cloud.firestore {
     match /slots/{slotId} {
       // slim mirror of taken times (barber/date/time only, no personal data).
       // everyone signed-in reads it for the calendar; a slot can be created
-      // once and never overwritten -> the server itself rejects double booking
+      // once and never overwritten -> the server itself rejects double booking.
+      // the doc id must match its own contents so a slot can only claim the
+      // exact time it names, and stray fields are rejected
       allow read: if request.auth != null;
       allow create: if request.auth != null
                     && request.auth.token.email_verified == true
-                    && request.resource.data.uid == request.auth.uid;
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['barberId', 'date', 'time', 'uid'])
+                    && slotId == request.resource.data.barberId + '_' + request.resource.data.date + '_' + request.resource.data.time;
       allow delete: if isAdmin() ||
         (request.auth != null && resource.data.uid == request.auth.uid);
     }

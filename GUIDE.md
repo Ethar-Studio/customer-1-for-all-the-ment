@@ -38,8 +38,9 @@ A dark, editorial barbershop website for **All Men Salon / صالون لكل ا�
 
 These are the only open items. Everything else is built and tested.
 
-- [ ] **Re-publish the security rules** so the email-verified gate is enforced on the server, not just the page. → [Section 6](#6-security-rules-paste-these)
-- [ ] **Claim the admin account:** open `admin.html`, log in with username **`admin`** and **any password you choose** — the first login sets it permanently. Do this soon so no one else can claim it.
+- [ ] **Claim the admin account FIRST:** open `admin.html`, log in with username **`admin`** and **any password you choose** — the first login sets it permanently. Do this *before deploying* so nobody can claim it ahead of you. (Admin sign-up is public by design; whoever logs in first owns the password.)
+- [ ] **Publish the security rules** so the email-verified gate is enforced on the server, not just the page: `firebase deploy --only firestore`. → [Section 6](#6-security-rules)
+- [ ] **(Recommended) Turn on App Check** so nobody can bypass the site and hit the database directly with the SDK. → [Section 6b](#6b-app-check-stop-direct-database-abuse)
 - [ ] **Deploy the site** so it has a real web address (don't run it from the Desktop long-term). → [Section 8](#8-deploy-it-live-firebase-hosting)
 
 ---
@@ -89,9 +90,20 @@ These are the only open items. Everything else is built and tested.
 
 ---
 
-## 6. Security rules (paste these)
+## 6. Security rules
 
-These are what actually protect your data. In the console: **Firestore Database → Rules**, replace everything, click **Publish**.
+These are what actually protect your data. The live copy lives in the repo at
+**`firestore.rules`** (with the composite index in `firestore.indexes.json`),
+so the preferred way to publish them is one command:
+
+```
+firebase deploy --only firestore
+```
+
+That pushes both the rules and the index from the file — no copy-paste, and
+the deployed rules always match what's in version control. (You can still
+paste the block below into **Firestore Database → Rules → Publish** by hand if
+you'd rather not use the CLI, but keep it in sync with `firestore.rules`.)
 
 ```
 rules_version = '2';
@@ -106,11 +118,20 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     match /reservations/{id} {
-      // create: verified email, own uid, must start as 'pending'
+      // create: verified email, own uid, must start as 'pending',
+      // and fields must be sane types (total is rendered by the admin
+      // dashboard — it must be a number, never a string of HTML)
       allow create: if request.auth != null
                     && request.auth.token.email_verified == true
                     && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.status == 'pending';
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.total is number
+                    && request.resource.data.barberId is string
+                    && request.resource.data.date is string
+                    && request.resource.data.time is string
+                    && request.resource.data.serviceIds is list
+                    && request.resource.data.notes is string
+                    && request.resource.data.notes.size() <= 500;
       // privacy: customers read only their own; admins read all
       allow read: if request.auth != null &&
         (resource.data.uid == request.auth.uid || isAdmin());
@@ -123,11 +144,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /slots/{slotId} {
-      // taken-times mirror (no personal data) + server-side double-booking block
+      // taken-times mirror (no personal data) + server-side double-booking block.
+      // the doc id must match its contents so a slot can only claim the time it names
       allow read: if request.auth != null;
       allow create: if request.auth != null
                     && request.auth.token.email_verified == true
-                    && request.resource.data.uid == request.auth.uid;
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['barberId', 'date', 'time', 'uid'])
+                    && slotId == request.resource.data.barberId + '_' + request.resource.data.date + '_' + request.resource.data.time;
       allow delete: if isAdmin() ||
         (request.auth != null && resource.data.uid == request.auth.uid);
     }
@@ -141,6 +165,29 @@ service cloud.firestore {
 
 > If you add a second admin username, add its email here too, e.g.
 > `['admin@staff.forallmen.app', 'reception@staff.forallmen.app']`.
+
+---
+
+## 6b. App Check (stop direct-database abuse)
+
+The rules stop people reading data they shouldn't. **App Check** stops a
+different attack: because the Firebase web key is public, someone technical can
+skip your website entirely and poke the database directly with the SDK. App
+Check makes Firestore reject any request that doesn't come from your real site.
+It's free and strongly recommended, but **optional** — the site works without it.
+
+Turn it on (about 5 minutes):
+
+1. **Firebase console → App Check → Get started → Register** your web app with
+   the **reCAPTCHA v3** provider. Copy the **site key** it gives you.
+2. Paste that key into **`js/firebase-config.js`** →
+   `window.APPCHECK_SITE_KEY = "…"` and **deploy the site** (`firebase deploy
+   --only hosting`). Nothing enforces yet — this just starts sending tokens.
+3. Give it a day, then **App Check → APIs → Cloud Firestore → Enforce.**
+
+> Order matters: paste the key and deploy **before** you click Enforce. If you
+> enforce with no key configured, the live site will start failing every read
+> and write. Leaving `APPCHECK_SITE_KEY` empty keeps App Check off — safe default.
 
 ---
 
@@ -177,6 +224,13 @@ firebase deploy --only hosting
 ```
 
 When it finishes it prints your live **Hosting URL** — that's the link you share with customers.
+
+If you changed the security rules (`firestore.rules`) or the index
+(`firestore.indexes.json`), push those too:
+```
+firebase deploy --only firestore
+```
+Or deploy everything — site + rules — at once with a plain `firebase deploy`.
 
 ---
 
@@ -267,7 +321,9 @@ customer website 1/
 │   ├── i18n.js             Every English + Arabic string
 │   ├── store.js            Login + database logic
 │   └── app.js              Shared header/footer + language toggle
-├── firebase.json         Hosting config
+├── firebase.json         Hosting + Firestore config
+├── firestore.rules       Security rules (deploy with: firebase deploy --only firestore)
+├── firestore.indexes.json  Composite index for the booking calendar
 ├── .firebaserc           Points to project cuntomer-1
 ├── README.md             Short readme
 └── GUIDE.md              This file

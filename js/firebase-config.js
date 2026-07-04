@@ -30,3 +30,13 @@ window.FIREBASE_CONFIG = {
 window.ADMIN_USERNAMES = [
   "admin",
 ];
+
+/* App Check (reCAPTCHA v3) — leave empty to disable.
+   When you paste a site key here AND turn on enforcement in the Firebase
+   console (App Check → APIs → Firestore → Enforce), Firestore will reject
+   any request that does NOT come from this real site — shutting down people
+   who try to hit the database directly with the SDK to bypass the app.
+   Get the key: Firebase console → App Check → Register app → reCAPTCHA v3.
+   IMPORTANT: paste the key here and deploy BEFORE enabling enforcement,
+   or the live site will start failing every read/write. */
+window.APPCHECK_SITE_KEY = "";

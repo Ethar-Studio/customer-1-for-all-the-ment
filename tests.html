@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tests — All Men Salon</title>
+  <!-- Hermetic: loads ONLY data.js (pure, no Firebase, no side effects) and
+       asserts the business logic. Open tests.html over http:// and read the
+       result, or check the page title / #summary. Not deployed (see firebase.json). -->
+  <script src="js/data.js"></script>
+  <style>
+    body { font-family: ui-monospace, monospace; background:#12100e; color:#e8e2d6; padding:24px; line-height:1.6; }
+    h1 { font-size:18px; }
+    .pass { color:#7bbd87; }
+    .fail { color:#e0655b; font-weight:700; }
+    #summary { font-size:16px; margin:16px 0; padding:12px; border:1px solid #333; }
+    ul { list-style:none; padding:0; } li { padding:2px 0; }
+  </style>
+</head>
+<body>
+  <h1>All Men Salon — pure-logic tests</h1>
+  <div id="summary">running…</div>
+  <ul id="out"></ul>
+
+  <script>
+    const out = document.getElementById('out');
+    let passed = 0, failed = 0;
+    function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+    function test(name, got, want) {
+      const ok = eq(got, want);
+      ok ? passed++ : failed++;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = (ok ? '✓ ' : '✗ ') + name +
+        (ok ? '' : `  — got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+      out.appendChild(li);
+    }
+
+    /* ---- loyalty punch-card cycle (goal = 5, every 6th free) ---- */
+    test('loyalty: 0 done → 0 stamps, not earned',
+      loyaltyStatus(0), { stamps: 0, goal: 5, freeEarned: false });
+    test('loyalty: 4 done → 4 stamps, not earned',
+      loyaltyStatus(4), { stamps: 4, goal: 5, freeEarned: false });
+    test('loyalty: 5 done → 5 stamps, free EARNED',
+      loyaltyStatus(5), { stamps: 5, goal: 5, freeEarned: true });
+    test('loyalty: 6 done → cycle resets to 0',
+      loyaltyStatus(6), { stamps: 0, goal: 5, freeEarned: false });
+    test('loyalty: 11 done → 5 stamps, free earned again',
+      loyaltyStatus(11), { stamps: 5, goal: 5, freeEarned: true });
+    test('loyalty: 12 done → resets to 0',
+      loyaltyStatus(12), { stamps: 0, goal: 5, freeEarned: false });
+
+    /* ---- what counts as a completed haircut ---- */
+    test('haircut: completed + haircut → counts',
+      isCompletedHaircut({ status: 'completed', serviceIds: ['haircut'] }), true);
+    test('haircut: completed + combo → counts',
+      isCompletedHaircut({ status: 'completed', serviceIds: ['combo'] }), true);
+    test('haircut: completed + wash only → does NOT count',
+      isCompletedHaircut({ status: 'completed', serviceIds: ['wash'] }), false);
+    test('haircut: confirmed (not done) + haircut → does NOT count',
+      isCompletedHaircut({ status: 'confirmed', serviceIds: ['haircut'] }), false);
+    test('haircut: null reservation → false',
+      isCompletedHaircut(null), false);
+    test('haircut: missing serviceIds → false',
+      isCompletedHaircut({ status: 'completed' }), false);
+
+    /* ---- isoDate zero-pads month and day, local time ---- */
+    test('isoDate: single-digit month/day padded',
+      isoDate(new Date(2026, 0, 5)), '2026-01-05');
+    test('isoDate: December 31',
+      isoDate(new Date(2026, 11, 31)), '2026-12-31');
+
+    /* ---- slot generation respects opening hours per weekday ---- */
+    // build one date for each weekday (0=Sun..6=Sat) and check against HOURS
+    (function () {
+      const seen = {};
+      for (let i = 0; i < 14 && Object.keys(seen).length < 7; i++) {
+        const d = new Date(2026, 5, 1 + i);   // June 2026
+        seen[d.getDay()] = seen[d.getDay()] || d;
+      }
+      for (let day = 0; day <= 6; day++) {
+        const d = seen[day];
+        const [open, close] = HOURS[day];
+        const slots = slotTimesFor(d);
+        test(`slots: weekday ${day} has (close-open)*2 = ${(close - open) * 2} slots`,
+          slots.length, (close - open) * 2);
+        test(`slots: weekday ${day} first slot is ${String(open).padStart(2, '0')}:00`,
+          slots[0], String(open).padStart(2, '0') + ':00');
+        // last slot is 30 min before close, never at/after close
+        test(`slots: weekday ${day} last slot before close`,
+          slots[slots.length - 1], String(close - 1).padStart(2, '0') + ':30');
+      }
+    })();
+
+    // Friday specifically opens after Jumu'ah (14:00)
+    (function () {
+      // find a Friday (getDay === 5)
+      let fri = null;
+      for (let i = 0; i < 14; i++) { const d = new Date(2026, 5, 1 + i); if (d.getDay() === 5) { fri = d; break; } }
+      test('slots: Friday opens at 14:00 (after Jumu’ah)', slotTimesFor(fri)[0], '14:00');
+    })();
+
+    const summary = document.getElementById('summary');
+    summary.textContent = `${passed} passed, ${failed} failed`;
+    summary.className = failed ? 'fail' : 'pass';
+    document.title = (failed ? '✗ ' : '✓ ') + summary.textContent;
+    window.__testResult = { passed, failed };
+  </script>
+</body>
+</html>

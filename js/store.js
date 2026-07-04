@@ -32,6 +32,14 @@
   let db = null, auth = null;
   if (useFirebase) {
     firebase.initializeApp(cfg);
+    /* App Check — activate only when a site key is configured. Blocks
+       direct-SDK abuse (requests that don't come from the real site).
+       No-op until you set window.APPCHECK_SITE_KEY in firebase-config.js. */
+    try {
+      if (window.APPCHECK_SITE_KEY && firebase.appCheck) {
+        firebase.appCheck().activate(window.APPCHECK_SITE_KEY, true);
+      }
+    } catch (_) { /* App Check SDK missing or key rejected — keep going */ }
     auth = firebase.auth();
     db = firebase.firestore();
   }
@@ -39,6 +47,8 @@
   /* ---------- demo-mode helpers (localStorage) ---------- */
   const lsGet = (k, fb) => { try { return JSON.parse(localStorage.getItem(k)) ?? fb; } catch { return fb; } };
   const lsSet = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  /* demo password encoding — plain btoa() throws on Arabic/non-Latin1 chars */
+  const demoPass = (p) => btoa(encodeURIComponent(p));
 
   /* Reject a Firestore read if it stalls (e.g. database not created yet)
      so pages degrade gracefully instead of hanging forever. */
@@ -123,7 +133,7 @@
       } else {
         const users = lsGet('bb_users', {});
         if (users[email]) throw new Error('auth.err.exists');
-        users[email] = { name, phone, pass: btoa(password) };
+        users[email] = { name, phone, pass: demoPass(password) };
         lsSet('bb_users', users);
         lsSet('bb_session', email);
         this._fireAuth({ uid: 'demo-' + email, name, email, phone, emailVerified: true, isAdmin: false });
@@ -156,7 +166,7 @@
       } else {
         const u = lsGet('bb_users', {})[email];
         if (!u) throw new Error('auth.err.nouser');
-        if (u.pass !== btoa(password)) throw new Error('auth.err.wrong');
+        if (u.pass !== demoPass(password)) throw new Error('auth.err.wrong');
         lsSet('bb_session', email);
         this._fireAuth({ uid: 'demo-' + email, name: u.name, email, phone: u.phone || '', emailVerified: true, isAdmin: false });
         return true;
@@ -219,9 +229,9 @@
       } else {
         const admins = lsGet('bb_admins', {});
         if (admins[username]) {
-          if (admins[username].pass !== btoa(password)) throw new Error('admin.err.wrong');
+          if (admins[username].pass !== demoPass(password)) throw new Error('admin.err.wrong');
         } else {
-          admins[username] = { pass: btoa(password) };
+          admins[username] = { pass: demoPass(password) };
           lsSet('bb_admins', admins);
         }
         lsSet('bb_admin_session', username);
@@ -250,7 +260,9 @@
         const slotRef = db.collection('slots').doc(this._slotId(rec));
         const resRef = db.collection('reservations').doc();
         const batch = db.batch();
-        batch.set(slotRef, { barberId: rec.barberId, date: rec.date, time: rec.time, uid: rec.uid, ref });
+        /* slot doc holds NO personal data (no ref/name) — it's world-readable
+           to signed-in users for the calendar, so keep it to the bare keys */
+        batch.set(slotRef, { barberId: rec.barberId, date: rec.date, time: rec.time, uid: rec.uid });
         batch.set(resRef, { ...rec, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         try {
           await batch.commit();
@@ -302,7 +314,12 @@
     async allReservations() {
       if (useFirebase) {
         try {
-          const snap = await raceTimeout(db.collection('reservations').get());
+          /* Bounded read: newest 1000 by date. Firestore bills per document,
+             so an unbounded scan grows in cost/latency forever; 1000 covers a
+             barbershop's active window (older records stay in the DB, just not
+             loaded into the dashboard). Raise the limit if you ever need more. */
+          const snap = await raceTimeout(db.collection('reservations')
+            .orderBy('date', 'desc').limit(1000).get());
           return snap.docs.map((d) => ({ _docId: d.id, ...d.data() }))
             .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
         } catch (_) { return []; }
@@ -312,8 +329,9 @@
     },
 
     /* Times already reserved for a barber on a date (excludes cancelled).
-       Reads the slim 'slots' mirror; also merges direct reservation reads so
-       it still works while the older security rules are live. */
+       Reads the slim 'slots' mirror only: under the privacy rules a customer
+       can't read other people's 'reservations', so querying that collection
+       here would just be denied — the slots mirror is the source of truth. */
     async takenSlots(barberId, dateIso) {
       if (useFirebase) {
         const out = new Set();
@@ -323,12 +341,6 @@
             .where('date', '==', dateIso).get());
           snap.docs.forEach((d) => out.add(d.data().time));
         } catch (_) {}
-        try {
-          const snap = await raceTimeout(db.collection('reservations')
-            .where('barberId', '==', barberId)
-            .where('date', '==', dateIso).get());
-          snap.docs.forEach((d) => { const r = d.data(); if (r.status !== 'cancelled') out.add(r.time); });
-        } catch (_) { /* denied under the new rules — slots covers it */ }
         return out;
       }
       const list = lsGet('bb_reservations', [])

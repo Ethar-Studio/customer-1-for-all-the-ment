@@ -48,8 +48,9 @@
     let cancelArm = null;   // ref currently showing "confirm cancel"
 
     window.PageInit = function () {
-      /* customers only — no session, or an admin session, goes to sign in */
+      /* customers only — no session, an admin session, or an UNVERIFIED email → sign in */
       if (!Store.currentUser || Store.currentUser.isAdmin) { window.location.replace('signin.html?next=account.html'); return; }
+      if (!Store.currentUser.emailVerified) { window.location.replace('signin.html?next=account.html'); return; }
       document.getElementById('btn-signout').addEventListener('click', async () => {
         await Store.signOut();
         window.location.replace('index.html');

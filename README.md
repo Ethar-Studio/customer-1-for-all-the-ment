@@ -17,7 +17,7 @@ Dark editorial barbershop website with a full reservation system, phone + passwo
 
 ## Two logins
 
-- **Customers** sign up with name, **email**, **phone**, and password on `signin.html`. The email must be verified via a **free Firebase link** before they can book (enforced in the UI *and* the Firestore rules). The phone is **not** verified — it's contact info shown to staff in the admin.
+- **Customers** sign up with name, **email**, **phone**, and password on `signin.html`. The email must be verified via a **free Firebase link** before the account can be used at all — after sign-up (or signing into an unverified account) they're held on a "verify your email" screen and can't proceed until they click the link. Booking is additionally gated in the Firestore rules. The phone is **not** verified — it's contact info shown to staff in the admin.
 - **Staff/admin** sign in with a **username + password** on `admin.html` (mapped internally to `<username>@staff.forallmen.app`).
 
 Both run on Firebase's "Email/Password" auth, so there are no SMS costs.

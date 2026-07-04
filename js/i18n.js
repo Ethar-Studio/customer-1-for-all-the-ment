@@ -110,6 +110,7 @@ window.DICT = {
     'verify.sent': 'Sent — check your inbox (and your spam folder).',
     'verify.notyet': 'Not verified yet. Click the link in your email first, then try again.',
     'verify.banner': 'Verify your email to make reservations.',
+    'verify.other': 'Use a different account',
 
     'gate.label': 'Reservation',
     'gate.title': 'Sign in to reserve',
@@ -346,6 +347,7 @@ window.DICT = {
     'verify.sent': 'تم الإرسال — تحقق من بريدك (ومجلد الرسائل غير المرغوبة).',
     'verify.notyet': 'لم يتم التأكيد بعد. اضغط الرابط في بريدك أولًا ثم حاول مجددًا.',
     'verify.banner': 'أكّد بريدك الإلكتروني لتتمكن من الحجز.',
+    'verify.other': 'استخدام حساب آخر',
 
     'gate.label': 'الحجز',
     'gate.title': 'سجّل دخولك للحجز',

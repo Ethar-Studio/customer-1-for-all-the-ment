@@ -64,6 +64,20 @@
             <span id="auth-submit-label" data-i18n="auth.signin.btn">Sign in</span>
           </button>
         </form>
+
+        <!-- Verify-email screen (shown after signup / when signing into an unverified account) -->
+        <div id="verify-view" style="display:none;text-align:center">
+          <div class="section-label" style="justify-content:center;margin-block-end:10px"><span class="dot"></span><span data-i18n="verify.label">Verify email</span></div>
+          <h2 class="display" style="font-size:clamp(24px,3.2vw,36px);margin-block-end:10px" data-i18n="verify.title">Check your inbox.</h2>
+          <p style="color:var(--mute);font-size:14px;margin-block-end:8px" data-i18n="verify.sub"></p>
+          <p id="verify-email" class="mono" dir="ltr" style="font-size:13px;color:var(--brass);margin-block-end:22px"></p>
+          <div class="form-msg" id="verify-msg" style="margin-block-end:18px"></div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button type="button" class="btn btn--light" id="btn-recheck" style="justify-content:center"><span data-i18n="verify.recheck">I've verified</span></button>
+            <button type="button" class="btn btn--ghost" id="btn-resend" style="justify-content:center"><span data-i18n="verify.resend">Resend email</span></button>
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-other" style="justify-content:center"><span data-i18n="verify.other">Use a different account</span></button>
+          </div>
+        </div>
       </div>
 
       <p id="demo-note" class="eyebrow" style="display:none;text-align:center;margin-block-start:20px;line-height:1.8" data-i18n="demo.notice"></p>
@@ -76,21 +90,55 @@
     let mode = 'signin';   // 'signin' | 'signup'
 
     window.PageInit = function () {
-      /* A signed-in CUSTOMER is sent where they were headed. But an admin is
-         NOT a customer — if an admin session is active, sign it out so this
-         page works as a normal customer sign-in / create-account form. */
-      if (Store.currentUser && !Store.currentUser.isAdmin) { window.location.replace(nextUrl()); return; }
-      if (Store.currentUser && Store.currentUser.isAdmin) { Store.signOut(); }
+      const u = Store.currentUser;
+      /* verified customer → go where they were headed */
+      if (u && !u.isAdmin && u.emailVerified) { window.location.replace(nextUrl()); return; }
+      /* signed in but email NOT verified → force the verify screen */
+      if (u && !u.isAdmin && !u.emailVerified) { setupForm(); showVerify(); return; }
+      /* admin session → not a customer; sign it out and show a clean form */
+      if (u && u.isAdmin) { Store.signOut(); }
+      setupForm();
+    };
 
+    function setupForm() {
       if (Store.mode === 'demo') document.getElementById('demo-note').style.display = 'block';
-
       document.getElementById('tab-signin').addEventListener('click', () => setMode('signin'));
       document.getElementById('tab-signup').addEventListener('click', () => setMode('signup'));
       document.getElementById('auth-form').addEventListener('submit', onSubmit);
+      document.getElementById('btn-recheck').addEventListener('click', onRecheck);
+      document.getElementById('btn-resend').addEventListener('click', onResend);
+      document.getElementById('btn-other').addEventListener('click', async () => { await Store.signOut(); window.location.reload(); });
 
       /* ?mode=signup lets other pages deep-link the register tab */
       if (new URLSearchParams(location.search).get('mode') === 'signup') setMode('signup');
-    };
+    }
+
+    /* ---------- verify screen ---------- */
+    function showVerify() {
+      document.querySelector('.auth-tabs').style.display = 'none';
+      document.getElementById('auth-form').style.display = 'none';
+      document.getElementById('verify-view').style.display = 'block';
+      const em = Store.currentUser && Store.currentUser.email;
+      if (em) document.getElementById('verify-email').textContent = em;
+    }
+    function vMsg(key, ok) {
+      const el = document.getElementById('verify-msg');
+      el.textContent = t(key);
+      el.className = 'form-msg' + (ok ? ' form-msg--ok' : '');
+      el.dataset.show = 'true';
+    }
+    async function onResend(e) {
+      const b = e.currentTarget; b.disabled = true;
+      try { await Store.resendVerification(); vMsg('verify.sent', true); }
+      catch (_) { vMsg('auth.err.generic', false); }
+      b.disabled = false;
+    }
+    async function onRecheck(e) {
+      const b = e.currentTarget; b.disabled = true;
+      const ok = await Store.reloadUser();
+      if (ok) { window.location.replace(nextUrl()); }
+      else { vMsg('verify.notyet', false); b.disabled = false; }
+    }
 
     function nextUrl() {
       const next = new URLSearchParams(location.search).get('next');
@@ -144,6 +192,8 @@
       try {
         if (mode === 'signup') await Store.signUp(name, email, phone, pass);
         else await Store.signIn(email, pass);
+        /* must verify the email before the account can be used */
+        if (Store.currentUser && !Store.currentUser.emailVerified) { showVerify(); return; }
         window.location.replace(nextUrl());
       } catch (err) {
         showMsg(err.message || 'auth.err.generic');

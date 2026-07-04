@@ -129,23 +129,37 @@
       }
     },
 
+    /* returns true if the signed-in email is verified, false if not */
     async signIn(email, password) {
       email = String(email || '').trim();
       if (useFirebase) {
+        let cred;
         try {
-          await auth.signInWithEmailAndPassword(email, password);
+          cred = await auth.signInWithEmailAndPassword(email, password);
         } catch (e) {
           if (e.code === 'auth/user-not-found') throw new Error('auth.err.nouser');
           if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') throw new Error('auth.err.wrong');
           if (e.code === 'auth/invalid-email') throw new Error('auth.err.email');
           throw new Error('auth.err.generic');
         }
+        /* build the session now (don't wait on the auth-state listener) */
+        const u = cred.user;
+        let phone = '', name = u.displayName || 'Guest';
+        try {
+          const doc = await raceTimeout(db.collection('users').doc(u.uid).get(), 6000);
+          if (doc.exists) { const d = doc.data(); phone = d.phone || ''; name = d.name || name; }
+        } catch (_) {}
+        /* not verified yet → resend the link so they always have a fresh one */
+        if (!u.emailVerified) { try { await u.sendEmailVerification(); } catch (_) {} }
+        this._fireAuth({ uid: u.uid, name, email, phone, emailVerified: u.emailVerified, isAdmin: false });
+        return u.emailVerified;
       } else {
         const u = lsGet('bb_users', {})[email];
         if (!u) throw new Error('auth.err.nouser');
         if (u.pass !== btoa(password)) throw new Error('auth.err.wrong');
         lsSet('bb_session', email);
-        this._fireAuth({ uid: 'demo-' + email, name: u.name, email, emailVerified: true, isAdmin: false });
+        this._fireAuth({ uid: 'demo-' + email, name: u.name, email, phone: u.phone || '', emailVerified: true, isAdmin: false });
+        return true;
       }
     },
 

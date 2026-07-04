@@ -315,7 +315,7 @@
         if (F.date === 'upcoming' && r.date < today) return false;
         if (F.date === 'past' && r.date >= today) return false;
         if (F.q) {
-          const hay = (r.name + ' ' + (r.email || r.phone || '') + ' ' + r.ref).toLowerCase();
+          const hay = (r.name + ' ' + (r.email || '') + ' ' + (r.phone || '') + ' ' + r.ref).toLowerCase();
           if (!hay.includes(F.q)) return false;
         }
         return true;
@@ -351,7 +351,7 @@
         return `
           <tr>
             <td class="mono">${esc(r.ref)}</td>
-            <td>${esc(r.name)}<br><span class="mono" dir="ltr">${esc(r.email || r.phone || '')}</span></td>
+            <td>${esc(r.name)}<br><span class="mono" dir="ltr">${esc(r.email || '')}</span>${r.phone ? `<br><span class="mono" dir="ltr">${esc(r.phone)}</span>` : ''}</td>
             <td>${esc(barber)}</td>
             <td>${esc(services)}</td>
             <td class="mono">${esc(r.date)} · ${esc(r.time)}</td>
@@ -385,9 +385,9 @@
 
     function exportCsv() {
       const rows = filtered();
-      const head = ['ref', 'name', 'email', 'barber', 'services', 'date', 'time', 'total', 'status', 'notes'];
+      const head = ['ref', 'name', 'email', 'phone', 'barber', 'services', 'date', 'time', 'total', 'status', 'notes'];
       const csv = [head.join(',')].concat(rows.map((r) => [
-        r.ref, r.name, (r.email || r.phone || ''),
+        r.ref, r.name, (r.email || ''), (r.phone || ''),
         barberById(r.barberId) ? barberById(r.barberId).name.en : r.barberId,
         (r.serviceIds || []).join(' + '),
         r.date, r.time, r.total, r.status,

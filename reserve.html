@@ -376,6 +376,7 @@
       const rows = [
         ['book.summary.name', Store.currentUser.name],
         ['book.summary.email', Store.currentUser.email],
+        ['book.summary.phone', Store.currentUser.phone || '—'],
         ['book.summary.barber', S.barberId ? tv(barberById(S.barberId).name) : '—'],
         ['book.summary.services', S.serviceIds.map((id) => tv(serviceById(id).name)).join(' + ') || '—'],
         ['book.summary.when', S.date && S.time ? fmtWhen(S.date, S.time) : '—'],
@@ -385,7 +386,7 @@
       document.getElementById('review-box').innerHTML = rows.map(([k, v, raw]) => `
         <div class="info-row">
           <div class="info-row__k">${esc(t(k))}</div>
-          <div class="info-row__v" ${k === 'book.summary.email' ? 'dir="ltr" style="text-align:start"' : ''}>${raw ? v : esc(v)}</div>
+          <div class="info-row__v" ${(k === 'book.summary.email' || k === 'book.summary.phone') ? 'dir="ltr" style="text-align:start"' : ''}>${raw ? v : esc(v)}</div>
         </div>`).join('');
     }
 
@@ -433,6 +434,7 @@
           uid: Store.currentUser.uid,
           name: Store.currentUser.name,
           email: Store.currentUser.email,
+          phone: Store.currentUser.phone || '',
           barberId: S.barberId,
           serviceIds: S.serviceIds,
           date: S.date,

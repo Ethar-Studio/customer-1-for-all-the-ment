@@ -72,7 +72,13 @@
             const username = email.slice(0, -ADMIN_DOMAIN.length);
             this._fireAuth({ uid: fbUser.uid, name: fbUser.displayName || username, username, isAdmin: true });
           } else {
-            this._fireAuth({ uid: fbUser.uid, name: fbUser.displayName || 'Guest', email, emailVerified: fbUser.emailVerified, isAdmin: false });
+            /* pull phone (and canonical name) from the customer's Firestore doc */
+            let phone = '', name = fbUser.displayName || 'Guest';
+            try {
+              const doc = await raceTimeout(db.collection('users').doc(fbUser.uid).get(), 6000);
+              if (doc.exists) { const d = doc.data(); phone = d.phone || ''; name = d.name || name; }
+            } catch (_) {}
+            this._fireAuth({ uid: fbUser.uid, name, email, phone, emailVerified: fbUser.emailVerified, isAdmin: false });
           }
         });
       } else {
@@ -81,7 +87,7 @@
         const email = lsGet('bb_session', null);
         if (email) {
           const u = lsGet('bb_users', {})[email];
-          if (u) return this._fireAuth({ uid: 'demo-' + email, name: u.name, email, emailVerified: true, isAdmin: false });
+          if (u) return this._fireAuth({ uid: 'demo-' + email, name: u.name, email, phone: u.phone || '', emailVerified: true, isAdmin: false });
         }
         this._fireAuth(null);
       }
@@ -89,8 +95,9 @@
 
     /* ---------- auth ---------- */
 
-    async signUp(name, email, password) {
+    async signUp(name, email, phone, password) {
       email = String(email || '').trim();
+      phone = String(phone || '').trim();   // contact only — not verified
       if (useFirebase) {
         let cred;
         try {
@@ -105,20 +112,20 @@
         try { await cred.user.updateProfile({ displayName: name }); } catch (_) {}
         try {
           await db.collection('users').doc(cred.user.uid).set({
-            name, email,
+            name, email, phone,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           });
         } catch (_) {}
         /* send the free verification link */
         try { await cred.user.sendEmailVerification(); } catch (_) {}
-        this._fireAuth({ uid: cred.user.uid, name, email, emailVerified: false, isAdmin: false });
+        this._fireAuth({ uid: cred.user.uid, name, email, phone, emailVerified: false, isAdmin: false });
       } else {
         const users = lsGet('bb_users', {});
         if (users[email]) throw new Error('auth.err.exists');
-        users[email] = { name, pass: btoa(password) };
+        users[email] = { name, phone, pass: btoa(password) };
         lsSet('bb_users', users);
         lsSet('bb_session', email);
-        this._fireAuth({ uid: 'demo-' + email, name, email, emailVerified: true, isAdmin: false });
+        this._fireAuth({ uid: 'demo-' + email, name, email, phone, emailVerified: true, isAdmin: false });
       }
     },
 
@@ -158,7 +165,8 @@
           this._fireAuth({ uid: u.uid, name: u.displayName || username, username, isAdmin: true });
           return true;
         }
-        this._fireAuth({ uid: u.uid, name: u.displayName || 'Guest', email, emailVerified: u.emailVerified, isAdmin: false });
+        const phone = (this.currentUser && this.currentUser.phone) || '';
+        this._fireAuth({ uid: u.uid, name: u.displayName || 'Guest', email, phone, emailVerified: u.emailVerified, isAdmin: false });
         return u.emailVerified;
       }
       return true;

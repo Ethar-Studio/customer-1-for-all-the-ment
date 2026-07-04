@@ -47,6 +47,11 @@
             <input id="in-email" type="email" inputmode="email" dir="ltr" autocomplete="email" data-i18n-ph="auth.email.ph">
             <div class="field__err" data-i18n="auth.err.email"></div>
           </div>
+          <div class="field" id="f-phone" style="display:none">
+            <label for="in-phone" data-i18n="auth.phone">Phone number</label>
+            <input id="in-phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" data-i18n-ph="auth.phone.ph">
+            <div class="field__err" data-i18n="auth.err.phone"></div>
+          </div>
           <div class="field" id="f-pass">
             <label for="in-pass" data-i18n="auth.password">Password</label>
             <input id="in-pass" type="password" autocomplete="current-password" data-i18n-ph="auth.password.ph">
@@ -95,6 +100,7 @@
       document.getElementById('tab-signin').dataset.active = String(m === 'signin');
       document.getElementById('tab-signup').dataset.active = String(m === 'signup');
       document.getElementById('f-name').style.display = m === 'signup' ? '' : 'none';
+      document.getElementById('f-phone').style.display = m === 'signup' ? '' : 'none';
       const label = document.getElementById('auth-submit-label');
       label.dataset.i18n = m === 'signup' ? 'auth.signup.btn' : 'auth.signin.btn';
       label.textContent = t(label.dataset.i18n);
@@ -115,6 +121,7 @@
 
       const name  = document.getElementById('in-name').value.trim();
       const email = document.getElementById('in-email').value.trim();
+      const phone = document.getElementById('in-phone').value;
       const pass  = document.getElementById('in-pass').value;
       const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -122,6 +129,7 @@
       const mark = (id, bad) => { document.getElementById(id).dataset.invalid = String(bad); if (bad) ok = false; };
       mark('f-name',  mode === 'signup' && name.length < 2);
       mark('f-email', !emailOk);
+      mark('f-phone', mode === 'signup' && phone.replace(/\D/g, '').length < 9);
       mark('f-pass',  pass.length < 6);
       if (!ok) return;
 
@@ -131,7 +139,7 @@
       label.textContent = t('auth.working');
 
       try {
-        if (mode === 'signup') await Store.signUp(name, email, pass);
+        if (mode === 'signup') await Store.signUp(name, email, phone, pass);
         else await Store.signIn(email, pass);
         window.location.replace(nextUrl());
       } catch (err) {

@@ -343,20 +343,26 @@
         tbody.innerHTML = `<tr><td colspan="8"><div style="text-align:center;color:var(--mute);padding-block:32px">${esc(t('admin.empty'))}</div></td></tr>`;
         return;
       }
+      /* per-customer count of completed haircuts (for the loyalty badge) */
+      const doneByUid = {};
+      ALL.forEach((r) => { if (isCompletedHaircut(r) && r.uid) doneByUid[r.uid] = (doneByUid[r.uid] || 0) + 1; });
+
       tbody.innerHTML = rows.map((r, i) => {
         const services = (r.serviceIds || []).map((id) => serviceById(id) ? tv(serviceById(id).name) : id).join(' + ');
         const barber = barberById(r.barberId) ? tv(barberById(r.barberId).name) : r.barberId;
+        const freeEarned = r.uid && loyaltyStatus(doneByUid[r.uid] || 0).freeEarned;
         return `
           <tr>
             <td class="mono">${esc(r.ref)}</td>
-            <td>${esc(r.name)}<br><span class="mono" dir="ltr">${esc(r.email || '')}</span>${r.phone ? `<br><span class="mono" dir="ltr">${esc(r.phone)}</span>` : ''}</td>
+            <td>${esc(r.name)}<br><span class="mono" dir="ltr">${esc(r.email || '')}</span>${r.phone ? `<br><span class="mono" dir="ltr">${esc(r.phone)}</span>` : ''}${freeEarned ? `<br><span class="free-badge">${esc(t('loyalty.freebadge'))}</span>` : ''}</td>
             <td>${esc(barber)}</td>
             <td>${esc(services)}</td>
             <td class="mono">${esc(r.date)} · ${esc(r.time)}</td>
             <td>${fmtPrice(r.total || 0)}</td>
             <td><span class="status status--${esc(r.status)}">${esc(t('status.' + r.status))}</span></td>
             <td style="white-space:nowrap">
-              ${r.status !== 'confirmed' ? `<button type="button" class="icon-btn icon-btn--ok" title="${esc(t('admin.confirm'))}" data-act="confirm" data-i="${i}">✓</button>` : ''}
+              ${(r.status !== 'completed' && r.status !== 'cancelled') ? `<button type="button" class="icon-btn icon-btn--done" title="${esc(t('admin.done'))}" data-act="done" data-i="${i}">✂</button>` : ''}
+              ${(r.status !== 'confirmed' && r.status !== 'completed' && r.status !== 'cancelled') ? `<button type="button" class="icon-btn icon-btn--ok" title="${esc(t('admin.confirm'))}" data-act="confirm" data-i="${i}">✓</button>` : ''}
               ${r.status !== 'cancelled' ? `<button type="button" class="icon-btn icon-btn--no" title="${esc(t('admin.cancel'))}" data-act="cancel" data-i="${i}">✕</button>` : ''}
               <button type="button" class="icon-btn icon-btn--no" title="${esc(t('admin.delete'))}" data-act="delete" data-i="${i}">🗑</button>
             </td>
@@ -369,6 +375,7 @@
           const act = el.dataset.act;
           try {
             if (act === 'confirm') await Store.setStatus(r, 'confirmed');
+            if (act === 'done') await Store.setStatus(r, 'completed');
             if (act === 'cancel') await Store.setStatus(r, 'cancelled');
             if (act === 'delete') {
               if (!el.dataset.armed) { el.dataset.armed = '1'; el.style.borderColor = 'var(--danger)'; el.style.color = 'var(--danger)'; return; }

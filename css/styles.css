@@ -692,7 +692,49 @@ body::after{
 }
 .status--pending{color:var(--brass);border-color:rgba(217,164,65,.4)}
 .status--confirmed{color:var(--ok);border-color:rgba(127,176,105,.4)}
+.status--completed{color:#7FB0D6;border-color:rgba(127,176,214,.45)}
 .status--cancelled{color:var(--mute);border-color:var(--hairline-2)}
+
+/* ============================================================
+   Loyalty punch card (account page)
+   ============================================================ */
+.loyalty{
+  background:linear-gradient(140deg,var(--panel) 0%,var(--bg-2) 70%);
+  border:1px solid var(--hairline);
+  border-radius:calc(var(--radius) + 4px);
+  padding:clamp(22px,3vw,32px);
+  margin-block-end:28px;
+}
+.loyalty__head{display:flex;align-items:start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-block-end:22px}
+.loyalty__sub{color:var(--mute);font-size:14px;margin-block-start:10px}
+.loyalty__count{font-size:13px;color:var(--mute);white-space:nowrap}
+.loyalty__count b{font-family:var(--display);font-weight:800;font-size:24px;color:var(--brass);margin-inline-end:4px}
+[lang="ar"] .loyalty__count b{font-family:var(--ar-display)}
+.stamps{display:flex;gap:10px;flex-wrap:wrap;margin-block-end:20px}
+.stamp{
+  width:clamp(40px,6vw,52px);aspect-ratio:1;flex:none;
+  border-radius:50%;border:1.5px dashed var(--hairline-2);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:14px;color:var(--mute);
+}
+.stamp--on{background:var(--brass);border-style:solid;border-color:var(--brass);color:#1A1508;font-weight:600}
+.stamp--free{border-color:var(--brass);color:var(--brass);border-style:solid}
+.stamp--free.stamp--on{background:var(--brass);color:#1A1508}
+.loyalty__msg{font-size:15px;line-height:1.5}
+.loyalty__msg b{font-family:var(--display);font-weight:800;color:var(--brass);font-size:18px}
+[lang="ar"] .loyalty__msg b{font-family:var(--ar-display)}
+.loyalty__msg--free{color:var(--brass);font-weight:600}
+.loyalty__note{font-size:12px;color:var(--mute);margin-block-start:12px}
+
+/* admin: scissors "done" button + free-cut badge */
+.icon-btn--done:hover{border-color:#7FB0D6;color:#7FB0D6}
+.free-badge{
+  display:inline-block;margin-block-start:6px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.04em;
+  color:var(--brass);border:1px solid rgba(217,164,65,.4);
+  border-radius:var(--pill);padding:3px 9px;
+}
+[lang="ar"] .free-badge{font-family:var(--ar-sans)}
 
 /* Admin */
 .stat-strip{

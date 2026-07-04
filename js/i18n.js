@@ -171,6 +171,15 @@ window.DICT = {
     'status.pending': 'Pending',
     'status.confirmed': 'Confirmed',
     'status.cancelled': 'Cancelled',
+    'status.completed': 'Done',
+
+    'loyalty.title': 'Loyalty card',
+    'loyalty.sub': 'Collect 5 haircuts — your 6th is on us.',
+    'loyalty.done': 'haircuts done',
+    'loyalty.remaining': 'more until your free haircut',
+    'loyalty.free': 'You’ve earned a free haircut — just mention it at the shop! 🎁',
+    'loyalty.note': 'Only haircuts the barber marks done are counted.',
+    'loyalty.freebadge': 'Free cut earned 🎁',
 
     'admin.head.label': 'Admin',
     'admin.head.title': 'The book',
@@ -206,6 +215,7 @@ window.DICT = {
     'admin.th.actions': '',
     'admin.empty': 'No reservations match.',
     'admin.confirm': 'Confirm',
+    'admin.done': 'Mark haircut done',
     'admin.cancel': 'Cancel',
     'admin.delete': 'Delete',
 
@@ -409,6 +419,15 @@ window.DICT = {
     'status.pending': 'قيد الانتظار',
     'status.confirmed': 'مؤكد',
     'status.cancelled': 'ملغي',
+    'status.completed': 'تم',
+
+    'loyalty.title': 'بطاقة الولاء',
+    'loyalty.sub': 'اجمع ٥ قصات — والسادسة علينا.',
+    'loyalty.done': 'قصات مكتملة',
+    'loyalty.remaining': 'قصات متبقية حتى القصة المجانية',
+    'loyalty.free': 'حصلت على قصة مجانية — فقط أخبر الحلاق عند زيارتك! 🎁',
+    'loyalty.note': 'تُحتسب فقط القصات التي يؤكّد الحلاق إتمامها.',
+    'loyalty.freebadge': 'قصة مجانية مستحقة 🎁',
 
     'admin.head.label': 'الإدارة',
     'admin.head.title': 'الدفتر',
@@ -444,6 +463,7 @@ window.DICT = {
     'admin.th.actions': '',
     'admin.empty': 'لا توجد حجوزات مطابقة.',
     'admin.confirm': 'تأكيد',
+    'admin.done': 'تأكيد إتمام القصة',
     'admin.cancel': 'إلغاء',
     'admin.delete': 'حذف',
 

@@ -5,6 +5,24 @@
 
 window.CURRENCY = { en: 'SAR', ar: 'ر.س' };
 
+/* Loyalty punch card: complete `goal` haircuts and the next one is free.
+   Only reservations the admin marks "done" (status 'completed') that include
+   one of `haircutServices` count toward it. */
+window.LOYALTY = { goal: 5, haircutServices: ['haircut', 'combo'] };
+
+/* completed haircut count -> { stamps 0..goal, freeEarned } */
+window.loyaltyStatus = function (completedCount) {
+  const cycle = window.LOYALTY.goal + 1;           // e.g. 6 (5 paid + 1 free)
+  const stamps = ((completedCount % cycle) + cycle) % cycle;
+  return { stamps, goal: window.LOYALTY.goal, freeEarned: stamps === window.LOYALTY.goal };
+};
+
+/* does a reservation count as a completed haircut? */
+window.isCompletedHaircut = function (r) {
+  return r && r.status === 'completed' &&
+    (r.serviceIds || []).some((id) => window.LOYALTY.haircutServices.includes(id));
+};
+
 window.BARBERS = [
   { id: 'reda',  num: '01', name: { en: 'Reda',  ar: 'رضا' },  role: { en: 'Barber', ar: 'حلاق' } },
   { id: 'walid', num: '02', name: { en: 'Walid', ar: 'وليد' }, role: { en: 'Barber', ar: 'حلاق' } },

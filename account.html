@@ -38,6 +38,7 @@
         <span data-i18n="verify.banner"></span>
         <button type="button" class="btn btn--ghost btn--sm" id="btn-acc-resend" style="margin-inline-start:12px"><span data-i18n="verify.resend">Resend email</span></button>
       </div>
+      <div id="loyalty-card"></div>
       <div class="res-list" id="mine-list"></div>
     </section>
   </main>
@@ -70,9 +71,36 @@
     };
     window.onLanguageChange = function () { if (Store._ready && Store.currentUser) renderMine(); };
 
+    function renderLoyalty(items) {
+      const done = items.filter((r) => isCompletedHaircut(r)).length;
+      const st = loyaltyStatus(done);
+      const remaining = st.goal - st.stamps;
+      const dots = Array.from({ length: st.goal + 1 }, (_, k) => {
+        const isFreeSlot = k === st.goal;                 // last slot = the free one
+        const filled = k < st.stamps;
+        return `<span class="stamp ${filled ? 'stamp--on' : ''} ${isFreeSlot ? 'stamp--free' : ''}">${isFreeSlot ? '★' : (filled ? '✓' : (k + 1))}</span>`;
+      }).join('');
+      document.getElementById('loyalty-card').innerHTML = `
+        <div class="loyalty">
+          <div class="loyalty__head">
+            <div>
+              <div class="section-label"><span class="dot"></span><span>${esc(t('loyalty.title'))}</span></div>
+              <p class="loyalty__sub">${esc(t('loyalty.sub'))}</p>
+            </div>
+            <div class="loyalty__count"><b>${done}</b> ${esc(t('loyalty.done'))}</div>
+          </div>
+          <div class="stamps">${dots}</div>
+          <div class="loyalty__msg ${st.freeEarned ? 'loyalty__msg--free' : ''}">
+            ${st.freeEarned ? esc(t('loyalty.free')) : ('<b>' + remaining + '</b> ' + esc(t('loyalty.remaining')))}
+          </div>
+          <div class="loyalty__note">${esc(t('loyalty.note'))}</div>
+        </div>`;
+    }
+
     async function renderMine() {
       const list = document.getElementById('mine-list');
       const items = await Store.myReservations();
+      renderLoyalty(items);
 
       if (!items.length) {
         list.innerHTML = `

@@ -48,7 +48,8 @@
     let cancelArm = null;   // ref currently showing "confirm cancel"
 
     window.PageInit = function () {
-      if (!Store.currentUser) { window.location.replace('signin.html?next=account.html'); return; }
+      /* customers only — no session, or an admin session, goes to sign in */
+      if (!Store.currentUser || Store.currentUser.isAdmin) { window.location.replace('signin.html?next=account.html'); return; }
       document.getElementById('btn-signout').addEventListener('click', async () => {
         await Store.signOut();
         window.location.replace('index.html');

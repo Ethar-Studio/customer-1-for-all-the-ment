@@ -76,8 +76,11 @@
     let mode = 'signin';   // 'signin' | 'signup'
 
     window.PageInit = function () {
-      /* already signed in? go where the user was headed */
-      if (Store.currentUser) { window.location.replace(nextUrl()); return; }
+      /* A signed-in CUSTOMER is sent where they were headed. But an admin is
+         NOT a customer — if an admin session is active, sign it out so this
+         page works as a normal customer sign-in / create-account form. */
+      if (Store.currentUser && !Store.currentUser.isAdmin) { window.location.replace(nextUrl()); return; }
+      if (Store.currentUser && Store.currentUser.isAdmin) { Store.signOut(); }
 
       if (Store.mode === 'demo') document.getElementById('demo-note').style.display = 'block';
 

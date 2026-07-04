@@ -26,12 +26,23 @@ function chromeHeader() {
       <a href="services.html" data-nav="services" data-i18n="nav.services">${esc(t('nav.services'))}</a>
       <a href="location.html" data-nav="location" data-i18n="nav.location">${esc(t('nav.location'))}</a>
       <a href="hours.html"    data-nav="hours"    data-i18n="nav.hours">${esc(t('nav.hours'))}</a>
-      <a href="admin.html"    data-nav="admin"    id="nav-admin" style="display:none">Admin</a>
     </nav>
     <div class="header-actions">
       <a class="auth-chip" id="auth-chip" href="signin.html" data-i18n="nav.signin">${esc(t('nav.signin'))}</a>
       <button class="lang-toggle" id="lang-toggle" type="button">${window.LANG === 'en' ? 'عربي' : 'EN'}</button>
       <a href="reserve.html" class="btn btn--light btn--sm"><span data-i18n="nav.book">${esc(t('nav.book'))}</span><span class="arr arr--ext">↗</span></a>
+    </div>
+  </div>`;
+}
+
+/* Standalone admin header — no customer nav, no book button, no auth chip.
+   The admin area is a page on its own, reached directly at admin.html. */
+function chromeHeaderAdmin() {
+  return `
+  <div class="site-header__bar">
+    <span class="brand"><span class="dot"></span><span data-i18n="brand">${esc(t('brand'))}</span></span>
+    <div class="header-actions">
+      <button class="lang-toggle" id="lang-toggle" type="button">${window.LANG === 'en' ? 'عربي' : 'EN'}</button>
     </div>
   </div>`;
 }
@@ -90,26 +101,25 @@ function setLanguage(lang) {
 /* --- auth chip --- */
 function updateAuthChip() {
   const chip = document.getElementById('auth-chip');
-  const adminLink = document.getElementById('nav-admin');
   if (!chip) return;
   const u = window.Store && window.Store.currentUser;
-  if (u) {
+  /* admins are never shown in the customer header — only real customers are */
+  if (u && !u.isAdmin) {
     chip.textContent = u.name.split(' ')[0];
-    chip.href = u.isAdmin ? 'admin.html' : 'account.html';   // admins have no visits page
+    chip.href = 'account.html';
     chip.removeAttribute('data-i18n');
-    if (adminLink) adminLink.style.display = u.isAdmin ? '' : 'none';
   } else {
     chip.textContent = t('nav.signin');
     chip.setAttribute('data-i18n', 'nav.signin');
     chip.href = 'signin.html';
-    if (adminLink) adminLink.style.display = 'none';
   }
 }
 
 /* --- boot --- */
 document.addEventListener('DOMContentLoaded', () => {
+  const isAdminPage = document.body.dataset.page === 'admin';
   const header = document.querySelector('.site-header');
-  if (header) header.innerHTML = chromeHeader();
+  if (header) header.innerHTML = isAdminPage ? chromeHeaderAdmin() : chromeHeader();
   const footer = document.querySelector('.footer');
   if (footer) footer.innerHTML = chromeFooter();
 

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sign In — All Men Salon</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23D9A441'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="js/firebase-config.js" defer></script>
+  <script src="js/data.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body data-page="signin">
+
+  <header class="site-header"></header>
+
+  <main class="shell">
+    <section class="page-head" style="text-align:center">
+      <div class="section-label" style="justify-content:center"><span class="dot"></span><span data-i18n="auth.head.label">Your account</span></div>
+      <h1 class="display page-head__title rise-in" data-i18n="auth.head.title">Take a seat.</h1>
+      <p class="page-head__sub rise-in d1" style="margin-inline:auto" data-i18n="auth.head.sub"></p>
+    </section>
+
+    <div class="auth-wrap rise-in d2">
+      <div class="auth-panel">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" id="tab-signin" data-active="true" data-i18n="auth.tab.signin">Sign in</button>
+          <button type="button" id="tab-signup" data-i18n="auth.tab.signup">Create account</button>
+        </div>
+
+        <form id="auth-form" class="form-grid" novalidate>
+          <div class="field" id="f-name" style="display:none">
+            <label for="in-name" data-i18n="auth.name">Full name</label>
+            <input id="in-name" type="text" autocomplete="name" data-i18n-ph="auth.name.ph">
+            <div class="field__err" data-i18n="auth.err.name"></div>
+          </div>
+          <div class="field" id="f-phone">
+            <label for="in-phone" data-i18n="auth.phone">Phone number</label>
+            <input id="in-phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" data-i18n-ph="auth.phone.ph">
+            <div class="field__err" data-i18n="auth.err.phone"></div>
+          </div>
+          <div class="field" id="f-pass">
+            <label for="in-pass" data-i18n="auth.password">Password</label>
+            <input id="in-pass" type="password" autocomplete="current-password" data-i18n-ph="auth.password.ph">
+            <div class="field__err" data-i18n="auth.err.password"></div>
+          </div>
+
+          <div class="form-msg" id="auth-msg"></div>
+
+          <button type="submit" class="btn btn--light" id="auth-submit" style="justify-content:center">
+            <span id="auth-submit-label" data-i18n="auth.signin.btn">Sign in</span>
+          </button>
+        </form>
+      </div>
+
+      <p id="demo-note" class="eyebrow" style="display:none;text-align:center;margin-block-start:20px;line-height:1.8" data-i18n="demo.notice"></p>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let mode = 'signin';   // 'signin' | 'signup'
+
+    window.PageInit = function () {
+      /* already signed in? go where the user was headed */
+      if (Store.currentUser) { window.location.replace(nextUrl()); return; }
+
+      if (Store.mode === 'demo') document.getElementById('demo-note').style.display = 'block';
+
+      document.getElementById('tab-signin').addEventListener('click', () => setMode('signin'));
+      document.getElementById('tab-signup').addEventListener('click', () => setMode('signup'));
+      document.getElementById('auth-form').addEventListener('submit', onSubmit);
+
+      /* ?mode=signup lets other pages deep-link the register tab */
+      if (new URLSearchParams(location.search).get('mode') === 'signup') setMode('signup');
+    };
+
+    function nextUrl() {
+      const next = new URLSearchParams(location.search).get('next');
+      /* only allow same-folder pages, never external URLs */
+      return next && /^[\w-]+\.html$/.test(next) ? next : 'account.html';
+    }
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('tab-signin').dataset.active = String(m === 'signin');
+      document.getElementById('tab-signup').dataset.active = String(m === 'signup');
+      document.getElementById('f-name').style.display = m === 'signup' ? '' : 'none';
+      const label = document.getElementById('auth-submit-label');
+      label.dataset.i18n = m === 'signup' ? 'auth.signup.btn' : 'auth.signin.btn';
+      label.textContent = t(label.dataset.i18n);
+      document.getElementById('in-pass').autocomplete = m === 'signup' ? 'new-password' : 'current-password';
+      hideMsg();
+    }
+
+    function showMsg(key) {
+      const el = document.getElementById('auth-msg');
+      el.textContent = t(key);
+      el.dataset.show = 'true';
+    }
+    function hideMsg() { document.getElementById('auth-msg').dataset.show = 'false'; }
+
+    async function onSubmit(e) {
+      e.preventDefault();
+      hideMsg();
+
+      const name  = document.getElementById('in-name').value.trim();
+      const phone = document.getElementById('in-phone').value;
+      const pass  = document.getElementById('in-pass').value;
+
+      let ok = true;
+      const mark = (id, bad) => { document.getElementById(id).dataset.invalid = String(bad); if (bad) ok = false; };
+      mark('f-name',  mode === 'signup' && name.length < 2);
+      mark('f-phone', normPhone(phone).length < 9);
+      mark('f-pass',  pass.length < 6);
+      if (!ok) return;
+
+      const btn = document.getElementById('auth-submit');
+      const label = document.getElementById('auth-submit-label');
+      btn.disabled = true;
+      label.textContent = t('auth.working');
+
+      try {
+        if (mode === 'signup') await Store.signUp(name, phone, pass);
+        else await Store.signIn(phone, pass);
+        window.location.replace(nextUrl());
+      } catch (err) {
+        showMsg(err.message || 'auth.err.generic');
+        btn.disabled = false;
+        label.textContent = t(mode === 'signup' ? 'auth.signup.btn' : 'auth.signin.btn');
+      }
+    }
+  </script>
+</body>
+</html>

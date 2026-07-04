@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Admin — All Men Salon</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23D9A441'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="js/firebase-config.js" defer></script>
+  <script src="js/data.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body data-page="admin">
+
+  <header class="site-header"></header>
+
+  <main class="shell">
+    <section class="page-head">
+      <div class="section-label"><span class="dot"></span><span data-i18n="admin.head.label">Admin</span></div>
+      <h1 class="display page-head__title rise-in" data-i18n="admin.head.title">The book.</h1>
+      <p class="page-head__sub rise-in d1" data-i18n="admin.head.sub"></p>
+    </section>
+
+    <!-- Staff login -->
+    <section id="restricted" class="auth-wrap" style="display:none">
+      <div class="auth-panel">
+        <div class="section-label" style="justify-content:center;margin-block-end:8px"><span class="dot"></span><span data-i18n="admin.head.label">Admin</span></div>
+        <h2 class="display" style="text-align:center;font-size:clamp(26px,3.4vw,40px);margin-block-end:8px" data-i18n="admin.login.title">Staff login.</h2>
+        <p style="text-align:center;color:var(--mute);font-size:14px;margin-block-end:26px" data-i18n="admin.login.sub"></p>
+
+        <form id="admin-form" class="form-grid" novalidate>
+          <div class="field" id="af-user">
+            <label for="in-user" data-i18n="admin.username">Username</label>
+            <input id="in-user" type="text" autocomplete="username" dir="ltr" data-i18n-ph="admin.username.ph">
+            <div class="field__err" data-i18n="admin.err.userreq"></div>
+          </div>
+          <div class="field" id="af-pass">
+            <label for="in-apass" data-i18n="auth.password">Password</label>
+            <input id="in-apass" type="password" autocomplete="current-password" data-i18n-ph="auth.password.ph">
+            <div class="field__err" data-i18n="auth.err.password"></div>
+          </div>
+          <div class="form-msg" id="admin-msg"></div>
+          <button type="submit" class="btn btn--light" id="admin-submit" style="justify-content:center">
+            <span id="admin-submit-label" data-i18n="admin.login.btn">Sign in</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dash" style="display:none;padding-block-end:clamp(64px,9vw,140px)">
+      <p id="demo-note" class="eyebrow" style="display:none;margin-block-end:24px;line-height:1.8;color:var(--brass)" data-i18n="demo.notice"></p>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-block-end:26px">
+        <div class="auth-tabs" id="admin-tabs" style="max-width:340px;margin-block-end:0">
+          <button type="button" data-atab="reservations" data-active="true" data-i18n="admin.tab.reservations">Reservations</button>
+          <button type="button" data-atab="barbers" data-i18n="admin.tab.barbers">Barbers</button>
+        </div>
+        <button type="button" class="btn btn--ghost btn--sm" id="btn-admin-signout"><span data-i18n="auth.signout">Sign out</span></button>
+      </div>
+
+      <!-- Tab: Reservations -->
+      <div id="tab-reservations">
+        <div class="stat-strip" id="stat-strip"></div>
+
+        <div class="toolbar">
+          <input type="search" id="f-search" data-i18n-ph="admin.search.ph" dir="auto">
+          <select id="f-barber"></select>
+          <select id="f-date"></select>
+          <button type="button" class="btn btn--ghost btn--sm" id="btn-export"><span data-i18n="admin.export">Export CSV</span></button>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th data-i18n="admin.th.ref">Ref</th>
+                <th data-i18n="admin.th.customer">Customer</th>
+                <th data-i18n="admin.th.barber">Barber</th>
+                <th data-i18n="admin.th.services">Services</th>
+                <th data-i18n="admin.th.when">When</th>
+                <th data-i18n="admin.th.total">Total</th>
+                <th data-i18n="admin.th.status">Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="admin-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Barbers (availability) -->
+      <div id="tab-barbers" style="display:none">
+        <p style="color:var(--mute);font-size:14.5px;max-width:60ch;margin-block-end:28px" data-i18n="admin.bar.intro"></p>
+        <div class="barbers-admin" id="barbers-admin"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let ALL = [];
+    const F = { q: '', barber: '', date: '' };
+
+    window.PageInit = async function () {
+      const u = Store.currentUser;
+      if (!u || !u.isAdmin) {
+        showAdminLogin();
+        return;
+      }
+      document.getElementById('dash').style.display = '';
+      if (Store.mode === 'demo') document.getElementById('demo-note').style.display = 'block';
+
+      document.getElementById('f-search').addEventListener('input', (e) => { F.q = e.target.value.toLowerCase(); renderRows(); });
+      document.getElementById('f-barber').addEventListener('change', (e) => { F.barber = e.target.value; renderRows(); });
+      document.getElementById('f-date').addEventListener('change', (e) => { F.date = e.target.value; renderRows(); });
+      document.getElementById('btn-export').addEventListener('click', exportCsv);
+      document.getElementById('btn-admin-signout').addEventListener('click', async () => {
+        await Store.signOut();
+        window.location.reload();
+      });
+      document.querySelectorAll('#admin-tabs [data-atab]').forEach((b) =>
+        b.addEventListener('click', () => switchTab(b.dataset.atab)));
+
+      try { await Store.loadAvailability(); } catch (_) { /* keep going */ }
+      await reload();
+    };
+
+    window.onLanguageChange = function () {
+      if (Store._ready && Store.currentUser?.isAdmin) {
+        renderFilters(); renderStats(); renderRows();
+        if (document.getElementById('tab-barbers').style.display !== 'none') renderBarbersAdmin();
+      }
+    };
+
+    /* ---------- tabs ---------- */
+    function switchTab(name) {
+      document.querySelectorAll('#admin-tabs [data-atab]').forEach((b) => b.dataset.active = String(b.dataset.atab === name));
+      document.getElementById('tab-reservations').style.display = name === 'reservations' ? '' : 'none';
+      document.getElementById('tab-barbers').style.display = name === 'barbers' ? '' : 'none';
+      if (name === 'barbers') renderBarbersAdmin();
+    }
+
+    /* ---------- barber availability editor ---------- */
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function genTimes() {
+      const out = [];
+      for (let h = 10; h <= 23; h++) { out.push(pad(h) + ':00'); if (h < 23) out.push(pad(h) + ':30'); }
+      return out;
+    }
+    function fmtDateLabel(iso) {
+      const [y, m, d] = iso.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      return t('days.short')[dt.getDay()] + ' ' + d + ' ' + t('months.short')[m - 1];
+    }
+
+    function renderBarbersAdmin() {
+      const times = genTimes();
+      const timeOpts = (sel) => times.map((tm) => `<option value="${tm}" ${tm === sel ? 'selected' : ''}>${tm}</option>`).join('');
+      const box = document.getElementById('barbers-admin');
+
+      box.innerHTML = BARBERS.map((b) => {
+        const a = Store.availabilityFor(b.id);
+        const entries = [
+          ...a.off.map((d) => ({ date: d, off: true })),
+          ...Object.entries(a.windows).map(([d, w]) => ({ date: d, off: false, from: w.from, to: w.to })),
+        ].sort((x, y) => x.date.localeCompare(y.date));
+
+        const rows = entries.length ? entries.map((e) => `
+          <div class="timeoff-row">
+            <span class="timeoff-row__txt"><b>${esc(fmtDateLabel(e.date))}</b> — ${
+              e.off ? esc(t('admin.bar.allday'))
+                    : esc(t('admin.bar.onlyfrom')) + ' ' + e.from + ' – ' + e.to}</span>
+            <button type="button" class="icon-btn icon-btn--no" data-rm="${b.id}|${e.date}" title="${esc(t('admin.delete'))}">✕</button>
+          </div>`).join('') : `<div class="timeoff-empty">${esc(t('admin.bar.none'))}</div>`;
+
+        return `
+        <div class="bar-card">
+          <div class="bar-card__head">
+            <div>
+              <div class="bar-card__name">${esc(tv(b.name))}</div>
+              <div class="bar-card__role">CHAIR / ${b.num} — ${esc(tv(b.role))}</div>
+            </div>
+            <button type="button" class="status status--${a.active ? 'confirmed' : 'cancelled'}" data-toggle="${b.id}" style="cursor:pointer">${esc(t(a.active ? 'admin.bar.working' : 'admin.bar.paused'))}</button>
+          </div>
+          <div class="bar-card__label">${esc(t('admin.bar.timeoff'))}</div>
+          <div class="timeoff-list">${rows}</div>
+          <div class="timeoff-add">
+            <input type="date" data-date="${b.id}" min="${isoDate(new Date())}">
+            <select data-type="${b.id}">
+              <option value="off">${esc(t('admin.bar.allday'))}</option>
+              <option value="window">${esc(t('admin.bar.limited'))}</option>
+            </select>
+            <select data-from="${b.id}" hidden>${timeOpts('16:00')}</select>
+            <select data-to="${b.id}" hidden>${timeOpts('23:00')}</select>
+            <button type="button" class="btn btn--ghost btn--sm" data-add="${b.id}"><span>${esc(t('admin.bar.add'))}</span></button>
+          </div>
+          <div class="form-msg" data-msg="${b.id}" style="margin-block-start:12px"></div>
+        </div>`;
+      }).join('');
+
+      box.querySelectorAll('[data-type]').forEach((sel) =>
+        sel.addEventListener('change', () => {
+          const id = sel.dataset.type, limited = sel.value === 'window';
+          box.querySelector(`[data-from="${id}"]`).hidden = !limited;
+          box.querySelector(`[data-to="${id}"]`).hidden = !limited;
+        }));
+
+      box.querySelectorAll('[data-toggle]').forEach((btn) =>
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.toggle;
+          const a = Store.availabilityFor(id);
+          btn.disabled = true;
+          try { await Store.setAvailability(id, { ...a, active: !a.active }); }
+          catch (_) { alert(t('auth.err.generic')); }
+          renderBarbersAdmin();
+        }));
+
+      box.querySelectorAll('[data-rm]').forEach((btn) =>
+        btn.addEventListener('click', async () => {
+          const [id, date] = btn.dataset.rm.split('|');
+          const a = Store.availabilityFor(id);
+          const windows = { ...a.windows }; delete windows[date];
+          try { await Store.setAvailability(id, { active: a.active, off: a.off.filter((d) => d !== date), windows }); }
+          catch (_) { alert(t('auth.err.generic')); }
+          renderBarbersAdmin();
+        }));
+
+      box.querySelectorAll('[data-add]').forEach((btn) =>
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.add;
+          const msg = box.querySelector(`[data-msg="${id}"]`);
+          const date = box.querySelector(`[data-date="${id}"]`).value;
+          const type = box.querySelector(`[data-type="${id}"]`).value;
+          const from = box.querySelector(`[data-from="${id}"]`).value;
+          const to = box.querySelector(`[data-to="${id}"]`).value;
+          const fail = (k) => { msg.textContent = t(k); msg.dataset.show = 'true'; };
+          msg.dataset.show = 'false';
+          if (!date) return fail('admin.bar.err.date');
+          const a = Store.availabilityFor(id);
+          if (a.off.includes(date) || a.windows[date]) return fail('admin.bar.err.dup');
+          if (type === 'window' && from >= to) return fail('admin.bar.err.range');
+          const next = { active: a.active, off: [...a.off], windows: { ...a.windows } };
+          if (type === 'off') next.off.push(date);
+          else next.windows[date] = { from, to };
+          btn.disabled = true;
+          try { await Store.setAvailability(id, next); }
+          catch (_) { alert(t('auth.err.generic')); }
+          renderBarbersAdmin();
+        }));
+    }
+
+    /* ---------- staff login ---------- */
+    function showAdminLogin() {
+      document.getElementById('restricted').style.display = '';
+      const form = document.getElementById('admin-form');
+      const msg = document.getElementById('admin-msg');
+      const btn = document.getElementById('admin-submit');
+      const label = document.getElementById('admin-submit-label');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.dataset.show = 'false';
+        const user = document.getElementById('in-user').value.trim();
+        const pass = document.getElementById('in-apass').value;
+        let ok = true;
+        const mark = (id, bad) => { document.getElementById(id).dataset.invalid = String(bad); if (bad) ok = false; };
+        mark('af-user', user.length < 2);
+        mark('af-pass', pass.length < 6);
+        if (!ok) return;
+
+        btn.disabled = true;
+        label.textContent = t('auth.working');
+        try {
+          await Store.signInAdmin(user, pass);
+          window.location.reload();   // re-run PageInit as admin
+        } catch (err) {
+          msg.textContent = t(err.message || 'auth.err.generic');
+          msg.dataset.show = 'true';
+          btn.disabled = false;
+          label.textContent = t('admin.login.btn');
+        }
+      });
+    }
+
+    async function reload() {
+      ALL = await Store.allReservations();
+      renderFilters();
+      renderStats();
+      renderRows();
+    }
+
+    function renderFilters() {
+      const fb = document.getElementById('f-barber');
+      fb.innerHTML = `<option value="">${esc(t('admin.filter.allbarbers'))}</option>` +
+        BARBERS.map((b) => `<option value="${b.id}" ${F.barber === b.id ? 'selected' : ''}>${esc(tv(b.name))}</option>`).join('');
+      const fd = document.getElementById('f-date');
+      fd.innerHTML = ['', 'today', 'upcoming', 'past'].map((v) =>
+        `<option value="${v}" ${F.date === v ? 'selected' : ''}>${esc(t(v ? 'admin.filter.' + v : 'admin.filter.alldates'))}</option>`).join('');
+    }
+
+    function filtered() {
+      const today = isoDate(new Date());
+      return ALL.filter((r) => {
+        if (F.barber && r.barberId !== F.barber) return false;
+        if (F.date === 'today' && r.date !== today) return false;
+        if (F.date === 'upcoming' && r.date < today) return false;
+        if (F.date === 'past' && r.date >= today) return false;
+        if (F.q) {
+          const hay = (r.name + ' ' + r.phone + ' ' + r.ref).toLowerCase();
+          if (!hay.includes(F.q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderStats() {
+      const today = isoDate(new Date());
+      const active = ALL.filter((r) => r.status !== 'cancelled');
+      const cells = [
+        [ALL.length, 'admin.stat.total'],
+        [active.filter((r) => r.date >= today).length, 'admin.stat.upcoming'],
+        [active.filter((r) => r.date === today).length, 'admin.stat.today'],
+        [fmtPrice(active.reduce((a, r) => a + (r.total || 0), 0)), 'admin.stat.revenue'],
+      ];
+      document.getElementById('stat-strip').innerHTML = cells.map(([v, k]) => `
+        <div class="stat-cell">
+          <div class="stat-cell__v">${v}</div>
+          <div class="stat-cell__k">${esc(t(k))}</div>
+        </div>`).join('');
+    }
+
+    function renderRows() {
+      const rows = filtered();
+      const tbody = document.getElementById('admin-rows');
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="8"><div style="text-align:center;color:var(--mute);padding-block:32px">${esc(t('admin.empty'))}</div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = rows.map((r, i) => {
+        const services = (r.serviceIds || []).map((id) => serviceById(id) ? tv(serviceById(id).name) : id).join(' + ');
+        const barber = barberById(r.barberId) ? tv(barberById(r.barberId).name) : r.barberId;
+        return `
+          <tr>
+            <td class="mono">${esc(r.ref)}</td>
+            <td>${esc(r.name)}<br><span class="mono" dir="ltr">${esc(r.phone)}</span></td>
+            <td>${esc(barber)}</td>
+            <td>${esc(services)}</td>
+            <td class="mono">${esc(r.date)} · ${esc(r.time)}</td>
+            <td>${fmtPrice(r.total || 0)}</td>
+            <td><span class="status status--${esc(r.status)}">${esc(t('status.' + r.status))}</span></td>
+            <td style="white-space:nowrap">
+              ${r.status !== 'confirmed' ? `<button type="button" class="icon-btn icon-btn--ok" title="${esc(t('admin.confirm'))}" data-act="confirm" data-i="${i}">✓</button>` : ''}
+              ${r.status !== 'cancelled' ? `<button type="button" class="icon-btn icon-btn--no" title="${esc(t('admin.cancel'))}" data-act="cancel" data-i="${i}">✕</button>` : ''}
+              <button type="button" class="icon-btn icon-btn--no" title="${esc(t('admin.delete'))}" data-act="delete" data-i="${i}">🗑</button>
+            </td>
+          </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('[data-act]').forEach((el) =>
+        el.addEventListener('click', async () => {
+          const r = rows[Number(el.dataset.i)];
+          const act = el.dataset.act;
+          try {
+            if (act === 'confirm') await Store.setStatus(r, 'confirmed');
+            if (act === 'cancel') await Store.setStatus(r, 'cancelled');
+            if (act === 'delete') {
+              if (!el.dataset.armed) { el.dataset.armed = '1'; el.style.borderColor = 'var(--danger)'; el.style.color = 'var(--danger)'; return; }
+              await Store.remove(r);
+            }
+          } catch (_) {
+            alert(t('auth.err.generic'));
+          }
+          await reload();
+        }));
+    }
+
+    function exportCsv() {
+      const rows = filtered();
+      const head = ['ref', 'name', 'phone', 'barber', 'services', 'date', 'time', 'total', 'status', 'notes'];
+      const csv = [head.join(',')].concat(rows.map((r) => [
+        r.ref, r.name, r.phone,
+        barberById(r.barberId) ? barberById(r.barberId).name.en : r.barberId,
+        (r.serviceIds || []).join(' + '),
+        r.date, r.time, r.total, r.status,
+        (r.notes || '').replace(/[\r\n,]+/g, ' '),
+      ].map((v) => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+      a.download = 'for-all-men-reservations.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  </script>
+</body>
+</html>

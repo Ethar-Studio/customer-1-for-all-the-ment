@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Location — All Men Salon</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23D9A441'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="js/firebase-config.js" defer></script>
+  <script src="js/data.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body data-page="location">
+
+  <header class="site-header"></header>
+
+  <main class="shell">
+    <section class="page-head">
+      <div class="section-label"><span class="dot"></span><span data-i18n="location.head.label">Find us</span></div>
+      <h1 class="display page-head__title rise-in" data-i18n="location.head.title">The amber sign.</h1>
+      <p class="page-head__sub rise-in d1" data-i18n="location.head.sub"></p>
+    </section>
+
+    <section class="split rise-in d2" style="padding-block-end:clamp(56px,8vw,110px)">
+      <div class="map-frame">
+        <iframe
+          title="All Men Salon on the map"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          src="https://www.google.com/maps?q=All%20Men%20Salon%20%D8%B5%D8%A7%D9%84%D9%88%D9%86%20%D9%84%D9%83%D9%84%20%D8%A7%D9%84%D8%B1%D8%AC%D8%A7%D9%84%20%D9%84%D9%84%D8%AD%D9%84%D8%A7%D9%82%D8%A9%20Al%20Aqrabiyah%20Al%20Khobar&output=embed">
+        </iframe>
+      </div>
+
+      <div>
+        <div class="info-list" id="location-info"></div>
+        <div style="margin-block-start:28px">
+          <a id="maps-link" class="btn btn--light" target="_blank" rel="noopener"
+             href="https://maps.app.goo.gl/pyUCiHUamSUmgTLU6">
+            <span data-i18n="location.directions">Open in Google Maps</span><span class="arr arr--ext">↗</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    window.PageInit = function () { renderInfo(); };
+    window.onLanguageChange = function () { if (Store._ready) renderInfo(); };
+
+    function renderInfo() {
+      document.getElementById('location-info').innerHTML = `
+        <div class="info-row">
+          <div class="info-row__k">${esc(t('location.address'))}</div>
+          <div class="info-row__v">${esc(tv(LOCATION.address))}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-row__k">${esc(t('location.phone'))}</div>
+          <div class="info-row__v" dir="ltr">${esc(LOCATION.phone)}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-row__k">${esc(t('location.instagram'))}</div>
+          <div class="info-row__v" dir="ltr">${esc(LOCATION.instagram)}</div>
+        </div>`;
+    }
+  </script>
+</body>
+</html>

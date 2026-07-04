@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>My Visits — All Men Salon</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23D9A441'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="js/firebase-config.js" defer></script>
+  <script src="js/data.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body data-page="account">
+
+  <header class="site-header"></header>
+
+  <main class="shell">
+    <section class="page-head">
+      <div class="section-label"><span class="dot"></span><span data-i18n="mine.head.label">My visits</span></div>
+      <h1 class="display page-head__title rise-in" data-i18n="mine.head.title">Past &amp; upcoming.</h1>
+      <p class="page-head__sub rise-in d1" data-i18n="mine.head.sub"></p>
+      <div style="margin-block-start:24px" class="rise-in d2">
+        <button type="button" class="btn btn--ghost btn--sm" id="btn-signout"><span data-i18n="auth.signout">Sign out</span></button>
+      </div>
+    </section>
+
+    <section class="rise-in d2" style="padding-block-end:clamp(64px,9vw,140px);max-width:860px">
+      <div class="res-list" id="mine-list"></div>
+    </section>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let cancelArm = null;   // ref currently showing "confirm cancel"
+
+    window.PageInit = function () {
+      if (!Store.currentUser) { window.location.replace('signin.html?next=account.html'); return; }
+      document.getElementById('btn-signout').addEventListener('click', async () => {
+        await Store.signOut();
+        window.location.replace('index.html');
+      });
+      renderMine();
+    };
+    window.onLanguageChange = function () { if (Store._ready && Store.currentUser) renderMine(); };
+
+    async function renderMine() {
+      const list = document.getElementById('mine-list');
+      const items = await Store.myReservations();
+
+      if (!items.length) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <p style="margin-block-end:20px">${esc(t('mine.empty'))}</p>
+            <a href="reserve.html" class="btn btn--light"><span>${esc(t('mine.empty.cta'))}</span><span class="arr arr--ext">↗</span></a>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = items.map((r) => {
+        const services = (r.serviceIds || []).map((id) => serviceById(id) ? tv(serviceById(id).name) : id).join(' + ');
+        const barber = barberById(r.barberId) ? tv(barberById(r.barberId).name) : r.barberId;
+        const arming = cancelArm === r.ref;
+        const cancellable = r.status !== 'cancelled';
+        return `
+          <div class="res-item">
+            <div>
+              <div class="res-item__id">${esc(r.ref)}</div>
+              <div class="res-item__title">${esc(services)}</div>
+              <div class="res-item__meta">${esc(barber)} — ${esc(fmtWhen(r.date, r.time))} — ${fmtPrice(r.total)}</div>
+            </div>
+            <div class="res-item__end">
+              <span class="status status--${esc(r.status)}">${esc(t('status.' + r.status))}</span>
+              ${cancellable ? (arming
+                ? `<button type="button" class="btn btn--danger btn--sm" data-cancel2="${esc(r.ref)}"><span>${esc(t('mine.cancel.confirm'))}</span></button>
+                   <button type="button" class="btn btn--ghost btn--sm" data-keep="1"><span>${esc(t('mine.keep'))}</span></button>`
+                : `<button type="button" class="btn btn--ghost btn--sm" data-cancel1="${esc(r.ref)}"><span>${esc(t('mine.cancel'))}</span></button>`) : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+      list.querySelectorAll('[data-cancel1]').forEach((el) =>
+        el.addEventListener('click', () => { cancelArm = el.dataset.cancel1; renderMine(); }));
+      list.querySelectorAll('[data-keep]').forEach((el) =>
+        el.addEventListener('click', () => { cancelArm = null; renderMine(); }));
+      list.querySelectorAll('[data-cancel2]').forEach((el) =>
+        el.addEventListener('click', async () => {
+          const item = items.find((r) => r.ref === el.dataset.cancel2);
+          if (item) await Store.setStatus(item, 'cancelled');
+          cancelArm = null;
+          renderMine();
+        }));
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Tooling / not part of the site
+.agents/
+.claude/
+node_modules/
+
+# Firebase CLI cache
+.firebase/
+*.log
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# skills installer leftover
+skills-lock.json

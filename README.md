@@ -11,16 +11,16 @@ Dark editorial barbershop website with a full reservation system, phone + passwo
 | `reserve.html` | Reserve a chair: barber → services → date & time → confirm (**requires sign-in**) |
 | `location.html` | Address, landmark, parking, embedded map |
 | `hours.html` | Weekly schedule with a live "Open now / Closed now" pill |
-| `signin.html` | Customer sign in / create account (**phone number + password**) |
+| `signin.html` | Customer sign in / create account (**email + password**, with free email verification) |
 | `account.html` | My visits — past & upcoming reservations, cancel, sign out |
 | `admin.html` | Staff dashboard (**username + password login**). Two tabs: **Reservations** (stats, search/filter, confirm/cancel/delete, CSV export) and **Barbers** (pause a barber, mark days off, set limited hours — reflected live on the booking page) |
 
 ## Two logins
 
-- **Customers** sign in with their **phone number + password** on `signin.html`.
-- **Staff/admin** sign in with a **username + password** on `admin.html`.
+- **Customers** sign in with their **email + password** on `signin.html`, and must click a **free Firebase verification link** before they can book (enforced in the UI *and* in the Firestore rules).
+- **Staff/admin** sign in with a **username + password** on `admin.html` (mapped internally to `<username>@staff.forallmen.app`).
 
-Both run on Firebase's "Email/Password" auth under the hood (customers are mapped to `p<digits>@forallmen.app`, admins to `<username>@staff.forallmen.app`), so there are no SMS costs.
+Both run on Firebase's "Email/Password" auth, so there are no SMS costs.
 
 The allowed admin usernames are listed in `window.ADMIN_USERNAMES` in [js/firebase-config.js](js/firebase-config.js) (default: `admin`). **The first time** you sign in on `admin.html` with an allowed username, the password you type becomes that admin's password. After that, it just signs you in.
 
@@ -48,8 +48,10 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     match /reservations/{id} {
-      // any signed-in customer can create their own reservation and read slots
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      // must have a VERIFIED email to create a booking (server-side gate)
+      allow create: if request.auth != null
+                    && request.auth.token.email_verified == true
+                    && request.resource.data.uid == request.auth.uid;
       allow read:   if request.auth != null;
       // owners can cancel their own; admins manage everything
       allow update, delete: if request.auth != null &&

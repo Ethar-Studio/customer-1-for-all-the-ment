@@ -36,6 +36,18 @@
       <a href="signin.html?next=reserve.html" class="btn btn--light"><span data-i18n="gate.btn">Sign in / create account</span><span class="arr arr--ext">↗</span></a>
     </section>
 
+    <!-- Verify-email gate -->
+    <section id="verify-gate" class="gate" style="display:none;margin-block-end:clamp(64px,9vw,140px)">
+      <div class="section-label" style="justify-content:center"><span class="dot"></span><span data-i18n="verify.label">Verify email</span></div>
+      <h2 class="display" data-i18n="verify.title">Check your inbox.</h2>
+      <p data-i18n="verify.sub"></p>
+      <div class="form-msg" id="verify-msg" style="max-width:420px;margin-inline:auto;margin-block:0 22px"></div>
+      <div class="hero__ctas" style="justify-content:center;margin-block-end:0">
+        <button type="button" class="btn btn--ghost" id="btn-resend"><span data-i18n="verify.resend">Resend email</span></button>
+        <button type="button" class="btn btn--light" id="btn-recheck"><span data-i18n="verify.recheck">I've verified</span><span class="arr arr--ext">↗</span></button>
+      </div>
+    </section>
+
     <!-- Booking flow -->
     <section id="book" class="book-layout" style="display:none">
       <aside class="book-side">
@@ -125,9 +137,14 @@
     const DAYS_SHOWN = 10;
 
     window.PageInit = async function () {
-      /* customers only — an admin has no phone, so send them to sign in */
-      if (!Store.currentUser || !Store.currentUser.phone) {
+      /* customers only — admins sign in as a customer to book */
+      if (!Store.currentUser || Store.currentUser.isAdmin) {
         document.getElementById('gate').style.display = '';
+        return;
+      }
+      /* must verify their email before they can reserve */
+      if (!Store.currentUser.emailVerified) {
+        showVerifyGate();
         return;
       }
       document.getElementById('book').style.display = '';
@@ -152,6 +169,25 @@
     window.onLanguageChange = function () {
       if (Store._ready && Store.currentUser && document.getElementById('book').style.display !== 'none') renderAll();
     };
+
+    /* ---------- verify-email gate ---------- */
+    function showVerifyGate() {
+      const vg = document.getElementById('verify-gate');
+      const msg = document.getElementById('verify-msg');
+      vg.style.display = '';
+      document.getElementById('btn-resend').addEventListener('click', async (e) => {
+        const b = e.currentTarget; b.disabled = true;
+        try { await Store.resendVerification(); msg.textContent = t('verify.sent'); msg.className = 'form-msg form-msg--ok'; msg.dataset.show = 'true'; }
+        catch (_) { msg.textContent = t('auth.err.generic'); msg.className = 'form-msg'; msg.dataset.show = 'true'; }
+        b.disabled = false;
+      });
+      document.getElementById('btn-recheck').addEventListener('click', async (e) => {
+        const b = e.currentTarget; b.disabled = true;
+        const ok = await Store.reloadUser();
+        if (ok) { window.location.reload(); }
+        else { msg.textContent = t('verify.notyet'); msg.className = 'form-msg'; msg.dataset.show = 'true'; b.disabled = false; }
+      });
+    }
 
     /* ---------- derived ---------- */
     const totalPrice = () => S.serviceIds.reduce((a, id) => a + serviceById(id).price, 0);
@@ -339,7 +375,7 @@
       if (!Store.currentUser) return;
       const rows = [
         ['book.summary.name', Store.currentUser.name],
-        ['book.summary.phone', Store.currentUser.phone],
+        ['book.summary.email', Store.currentUser.email],
         ['book.summary.barber', S.barberId ? tv(barberById(S.barberId).name) : '—'],
         ['book.summary.services', S.serviceIds.map((id) => tv(serviceById(id).name)).join(' + ') || '—'],
         ['book.summary.when', S.date && S.time ? fmtWhen(S.date, S.time) : '—'],
@@ -349,7 +385,7 @@
       document.getElementById('review-box').innerHTML = rows.map(([k, v, raw]) => `
         <div class="info-row">
           <div class="info-row__k">${esc(t(k))}</div>
-          <div class="info-row__v" ${k === 'book.summary.phone' ? 'dir="ltr" style="text-align:start"' : ''}>${raw ? v : esc(v)}</div>
+          <div class="info-row__v" ${k === 'book.summary.email' ? 'dir="ltr" style="text-align:start"' : ''}>${raw ? v : esc(v)}</div>
         </div>`).join('');
     }
 
@@ -396,7 +432,7 @@
         const ref = await Store.createReservation({
           uid: Store.currentUser.uid,
           name: Store.currentUser.name,
-          phone: Store.currentUser.phone,
+          email: Store.currentUser.email,
           barberId: S.barberId,
           serviceIds: S.serviceIds,
           date: S.date,

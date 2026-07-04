@@ -2,8 +2,8 @@
    FIREBASE CONFIG — live keys for project "cuntomer-1".
 
    Auth model:
-   • Customers sign in with PHONE + password
-       (mapped internally to  p<digits>@forallmen.app)
+   • Customers sign in with EMAIL + password, and must click a free
+     Firebase verification link before they can book.
    • Admin/staff sign in with USERNAME + password
        (mapped internally to  <username>@staff.forallmen.app)
 

@@ -33,6 +33,11 @@
     </section>
 
     <section class="rise-in d2" style="padding-block-end:clamp(64px,9vw,140px);max-width:860px">
+      <!-- shown only when the signed-in email is not verified yet -->
+      <div id="verify-banner" class="form-msg" style="display:none;margin-block-end:20px">
+        <span data-i18n="verify.banner"></span>
+        <button type="button" class="btn btn--ghost btn--sm" id="btn-acc-resend" style="margin-inline-start:12px"><span data-i18n="verify.resend">Resend email</span></button>
+      </div>
       <div class="res-list" id="mine-list"></div>
     </section>
   </main>
@@ -48,6 +53,17 @@
         await Store.signOut();
         window.location.replace('index.html');
       });
+      /* nudge unverified customers to verify (they can't book until they do) */
+      if (!Store.currentUser.isAdmin && Store.currentUser.emailVerified === false) {
+        const banner = document.getElementById('verify-banner');
+        banner.dataset.show = 'true';
+        banner.style.display = 'block';
+        document.getElementById('btn-acc-resend').addEventListener('click', async (e) => {
+          const b = e.currentTarget; b.disabled = true;
+          try { await Store.resendVerification(); b.querySelector('span').textContent = t('verify.sent'); }
+          catch (_) { b.disabled = false; }
+        });
+      }
       renderMine();
     };
     window.onLanguageChange = function () { if (Store._ready && Store.currentUser) renderMine(); };

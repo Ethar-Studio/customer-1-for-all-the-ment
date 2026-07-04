@@ -42,10 +42,10 @@
             <input id="in-name" type="text" autocomplete="name" data-i18n-ph="auth.name.ph">
             <div class="field__err" data-i18n="auth.err.name"></div>
           </div>
-          <div class="field" id="f-phone">
-            <label for="in-phone" data-i18n="auth.phone">Phone number</label>
-            <input id="in-phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" data-i18n-ph="auth.phone.ph">
-            <div class="field__err" data-i18n="auth.err.phone"></div>
+          <div class="field" id="f-email">
+            <label for="in-email" data-i18n="auth.email">Email</label>
+            <input id="in-email" type="email" inputmode="email" dir="ltr" autocomplete="email" data-i18n-ph="auth.email.ph">
+            <div class="field__err" data-i18n="auth.err.email"></div>
           </div>
           <div class="field" id="f-pass">
             <label for="in-pass" data-i18n="auth.password">Password</label>
@@ -114,13 +114,14 @@
       hideMsg();
 
       const name  = document.getElementById('in-name').value.trim();
-      const phone = document.getElementById('in-phone').value;
+      const email = document.getElementById('in-email').value.trim();
       const pass  = document.getElementById('in-pass').value;
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
       let ok = true;
       const mark = (id, bad) => { document.getElementById(id).dataset.invalid = String(bad); if (bad) ok = false; };
       mark('f-name',  mode === 'signup' && name.length < 2);
-      mark('f-phone', normPhone(phone).length < 9);
+      mark('f-email', !emailOk);
       mark('f-pass',  pass.length < 6);
       if (!ok) return;
 
@@ -130,8 +131,8 @@
       label.textContent = t('auth.working');
 
       try {
-        if (mode === 'signup') await Store.signUp(name, phone, pass);
-        else await Store.signIn(phone, pass);
+        if (mode === 'signup') await Store.signUp(name, email, pass);
+        else await Store.signIn(email, pass);
         window.location.replace(nextUrl());
       } catch (err) {
         showMsg(err.message || 'auth.err.generic');

@@ -1,8 +1,8 @@
 /* ============================================================
    ALL MEN SALON — data + auth layer
 
-   Two logins, both on Firebase email/password under the hood:
-   • CUSTOMERS — phone + password  ->  p<digits>@forallmen.app
+   Two logins, both on Firebase email/password:
+   • CUSTOMERS — real email + password (must verify email before booking)
    • ADMIN     — username + password -> <username>@staff.forallmen.app
 
    Two backends behind one API:
@@ -72,17 +72,16 @@
             const username = email.slice(0, -ADMIN_DOMAIN.length);
             this._fireAuth({ uid: fbUser.uid, name: fbUser.displayName || username, username, isAdmin: true });
           } else {
-            const phone = email.replace(/^p/, '').replace(/@.*$/, '');
-            this._fireAuth({ uid: fbUser.uid, name: fbUser.displayName || 'Guest', phone, isAdmin: false });
+            this._fireAuth({ uid: fbUser.uid, name: fbUser.displayName || 'Guest', email, emailVerified: fbUser.emailVerified, isAdmin: false });
           }
         });
       } else {
         const adminU = lsGet('bb_admin_session', null);
         if (adminU) return this._fireAuth({ uid: 'admin-' + adminU, name: adminU, username: adminU, isAdmin: true });
-        const phone = lsGet('bb_session', null);
-        if (phone) {
-          const u = lsGet('bb_users', {})[phone];
-          if (u) return this._fireAuth({ uid: 'demo-' + phone, name: u.name, phone, isAdmin: false });
+        const email = lsGet('bb_session', null);
+        if (email) {
+          const u = lsGet('bb_users', {})[email];
+          if (u) return this._fireAuth({ uid: 'demo-' + email, name: u.name, email, emailVerified: true, isAdmin: false });
         }
         this._fireAuth(null);
       }
@@ -90,14 +89,15 @@
 
     /* ---------- auth ---------- */
 
-    async signUp(name, phone, password) {
-      phone = normPhone(phone);
+    async signUp(name, email, password) {
+      email = String(email || '').trim();
       if (useFirebase) {
         let cred;
         try {
-          cred = await auth.createUserWithEmailAndPassword(phoneEmail(phone), password);
+          cred = await auth.createUserWithEmailAndPassword(email, password);
         } catch (e) {
           if (e.code === 'auth/email-already-in-use') throw new Error('auth.err.exists');
+          if (e.code === 'auth/invalid-email') throw new Error('auth.err.email');
           if (e.code === 'auth/weak-password') throw new Error('auth.err.password');
           throw new Error('auth.err.generic');
         }
@@ -105,38 +105,63 @@
         try { await cred.user.updateProfile({ displayName: name }); } catch (_) {}
         try {
           await db.collection('users').doc(cred.user.uid).set({
-            name, phone,
+            name, email,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           });
         } catch (_) {}
-        this._fireAuth({ uid: cred.user.uid, name, phone, isAdmin: false });
+        /* send the free verification link */
+        try { await cred.user.sendEmailVerification(); } catch (_) {}
+        this._fireAuth({ uid: cred.user.uid, name, email, emailVerified: false, isAdmin: false });
       } else {
         const users = lsGet('bb_users', {});
-        if (users[phone]) throw new Error('auth.err.exists');
-        users[phone] = { name, pass: btoa(password) };
+        if (users[email]) throw new Error('auth.err.exists');
+        users[email] = { name, pass: btoa(password) };
         lsSet('bb_users', users);
-        lsSet('bb_session', phone);
-        this._fireAuth({ uid: 'demo-' + phone, name, phone, isAdmin: false });
+        lsSet('bb_session', email);
+        this._fireAuth({ uid: 'demo-' + email, name, email, emailVerified: true, isAdmin: false });
       }
     },
 
-    async signIn(phone, password) {
-      phone = normPhone(phone);
+    async signIn(email, password) {
+      email = String(email || '').trim();
       if (useFirebase) {
         try {
-          await auth.signInWithEmailAndPassword(phoneEmail(phone), password);
+          await auth.signInWithEmailAndPassword(email, password);
         } catch (e) {
           if (e.code === 'auth/user-not-found') throw new Error('auth.err.nouser');
           if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') throw new Error('auth.err.wrong');
+          if (e.code === 'auth/invalid-email') throw new Error('auth.err.email');
           throw new Error('auth.err.generic');
         }
       } else {
-        const u = lsGet('bb_users', {})[phone];
+        const u = lsGet('bb_users', {})[email];
         if (!u) throw new Error('auth.err.nouser');
         if (u.pass !== btoa(password)) throw new Error('auth.err.wrong');
-        lsSet('bb_session', phone);
-        this._fireAuth({ uid: 'demo-' + phone, name: u.name, phone, isAdmin: false });
+        lsSet('bb_session', email);
+        this._fireAuth({ uid: 'demo-' + email, name: u.name, email, emailVerified: true, isAdmin: false });
       }
+    },
+
+    /* resend the verification email to the signed-in customer */
+    async resendVerification() {
+      if (useFirebase && auth.currentUser) await auth.currentUser.sendEmailVerification();
+    },
+
+    /* re-check verification status after the user clicks the email link */
+    async reloadUser() {
+      if (useFirebase && auth.currentUser) {
+        await auth.currentUser.reload();
+        const u = auth.currentUser;
+        const email = u.email || '';
+        if (email.endsWith(ADMIN_DOMAIN)) {
+          const username = email.slice(0, -ADMIN_DOMAIN.length);
+          this._fireAuth({ uid: u.uid, name: u.displayName || username, username, isAdmin: true });
+          return true;
+        }
+        this._fireAuth({ uid: u.uid, name: u.displayName || 'Guest', email, emailVerified: u.emailVerified, isAdmin: false });
+        return u.emailVerified;
+      }
+      return true;
     },
 
     /* Admin sign-in with username + password.

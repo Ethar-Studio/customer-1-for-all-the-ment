@@ -106,13 +106,30 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     match /reservations/{id} {
-      // must have a VERIFIED email to create a booking
+      // create: verified email, own uid, must start as 'pending'
+      allow create: if request.auth != null
+                    && request.auth.token.email_verified == true
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      // privacy: customers read only their own; admins read all
+      allow read: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
+      // owners can only cancel upcoming bookings; the rest is admin-only
+      allow update: if isAdmin() ||
+        (request.auth != null && resource.data.uid == request.auth.uid
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+         && request.resource.data.status == 'cancelled'
+         && resource.data.status in ['pending', 'confirmed']);
+      allow delete: if isAdmin();
+    }
+    match /slots/{slotId} {
+      // taken-times mirror (no personal data) + server-side double-booking block
+      allow read: if request.auth != null;
       allow create: if request.auth != null
                     && request.auth.token.email_verified == true
                     && request.resource.data.uid == request.auth.uid;
-      allow read:   if request.auth != null;
-      allow update, delete: if request.auth != null &&
-        (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() ||
+        (request.auth != null && resource.data.uid == request.auth.uid);
     }
     match /availability/{barberId} {
       allow read:  if request.auth != null;

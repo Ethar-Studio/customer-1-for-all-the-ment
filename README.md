@@ -48,14 +48,34 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     match /reservations/{id} {
-      // must have a VERIFIED email to create a booking (server-side gate)
+      // create: verified email, own uid, and must start as 'pending'
+      // (blocks forging pre-completed bookings to farm loyalty stamps)
+      allow create: if request.auth != null
+                    && request.auth.token.email_verified == true
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      // privacy: customers read ONLY their own bookings; admins read all
+      allow read: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
+      // owners may ONLY cancel an upcoming booking (status -> 'cancelled');
+      // every other change (confirm / mark done / edit) is admin-only
+      allow update: if isAdmin() ||
+        (request.auth != null && resource.data.uid == request.auth.uid
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+         && request.resource.data.status == 'cancelled'
+         && resource.data.status in ['pending', 'confirmed']);
+      allow delete: if isAdmin();
+    }
+    match /slots/{slotId} {
+      // slim mirror of taken times (barber/date/time only, no personal data).
+      // everyone signed-in reads it for the calendar; a slot can be created
+      // once and never overwritten -> the server itself rejects double booking
+      allow read: if request.auth != null;
       allow create: if request.auth != null
                     && request.auth.token.email_verified == true
                     && request.resource.data.uid == request.auth.uid;
-      allow read:   if request.auth != null;
-      // owners can cancel their own; admins manage everything
-      allow update, delete: if request.auth != null &&
-        (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() ||
+        (request.auth != null && resource.data.uid == request.auth.uid);
     }
     match /availability/{barberId} {
       // customers read barber day-off / limited-hours; only admins edit it

@@ -452,7 +452,16 @@
         document.getElementById('confirm').style.display = '';
         window.scrollTo({ top: 0 });
       } catch (err) {
-        showMsg('auth.err.generic');
+        if (err && err.message === 'book.err.slottaken') {
+          /* someone grabbed that slot first — refresh the grid and re-pick */
+          S.time = null;
+          await refreshTaken();
+          goStep(3);
+          renderTimes();
+          showMsg('book.err.slottaken');
+        } else {
+          showMsg('auth.err.generic');
+        }
       } finally {
         btn.disabled = false;
         label.textContent = t(S.step === 4 ? 'book.confirm' : 'book.continue');

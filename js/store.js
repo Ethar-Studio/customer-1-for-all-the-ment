@@ -234,22 +234,54 @@
       else { localStorage.removeItem('bb_session'); localStorage.removeItem('bb_admin_session'); this._fireAuth(null); }
     },
 
-    /* ---------- reservations ---------- */
+    /* ---------- reservations ----------
+       Privacy/anti-race design: full reservations are readable only by their
+       owner + admin. A slim 'slots' doc (no personal data, deterministic id
+       barberId_date_time) mirrors each active booking so every customer can
+       see taken times — and because a taken slot doc already exists, a second
+       booking of the same slot fails server-side (no double booking). */
+
+    _slotId(r) { return r.barberId + '_' + r.date + '_' + r.time; },
 
     async createReservation(data) {
       const ref = newRef();
       const rec = { ...data, ref, status: 'pending', createdAt: new Date().toISOString() };
       if (useFirebase) {
-        await db.collection('reservations').add({
-          ...rec,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        });
+        const slotRef = db.collection('slots').doc(this._slotId(rec));
+        const resRef = db.collection('reservations').doc();
+        const batch = db.batch();
+        batch.set(slotRef, { barberId: rec.barberId, date: rec.date, time: rec.time, uid: rec.uid, ref });
+        batch.set(resRef, { ...rec, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        try {
+          await batch.commit();
+        } catch (e) {
+          /* batch fails if the slot is already taken (or slots rules aren't
+             published yet). If the slot exists → tell the user. Otherwise
+             fall back to a plain reservation write (legacy rules). */
+          try {
+            const s = await raceTimeout(slotRef.get(), 5000);
+            if (s.exists && s.data().uid !== rec.uid) throw new Error('book.err.slottaken');
+          } catch (err) { if (err.message === 'book.err.slottaken') throw err; }
+          await db.collection('reservations').add({
+            ...rec,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+        }
       } else {
         const all = lsGet('bb_reservations', []);
+        if (all.some((r) => r.status !== 'cancelled' && this._slotId(r) === this._slotId(rec))) {
+          throw new Error('book.err.slottaken');
+        }
         all.push(rec);
         lsSet('bb_reservations', all);
       }
       return ref;
+    },
+
+    /* free the mirrored slot when a booking is cancelled/deleted */
+    async _freeSlot(res) {
+      if (!useFirebase || !res || !res.barberId) return;
+      try { await db.collection('slots').doc(this._slotId(res)).delete(); } catch (_) {}
     },
 
     async myReservations() {
@@ -279,26 +311,35 @@
         .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     },
 
-    /* Times already reserved for a barber on a date (excludes cancelled) */
+    /* Times already reserved for a barber on a date (excludes cancelled).
+       Reads the slim 'slots' mirror; also merges direct reservation reads so
+       it still works while the older security rules are live. */
     async takenSlots(barberId, dateIso) {
-      let list;
       if (useFirebase) {
+        const out = new Set();
+        try {
+          const snap = await raceTimeout(db.collection('slots')
+            .where('barberId', '==', barberId)
+            .where('date', '==', dateIso).get());
+          snap.docs.forEach((d) => out.add(d.data().time));
+        } catch (_) {}
         try {
           const snap = await raceTimeout(db.collection('reservations')
             .where('barberId', '==', barberId)
             .where('date', '==', dateIso).get());
-          list = snap.docs.map((d) => d.data());
-        } catch (_) { return new Set(); }
-      } else {
-        list = lsGet('bb_reservations', [])
-          .filter((r) => r.barberId === barberId && r.date === dateIso);
+          snap.docs.forEach((d) => { const r = d.data(); if (r.status !== 'cancelled') out.add(r.time); });
+        } catch (_) { /* denied under the new rules — slots covers it */ }
+        return out;
       }
+      const list = lsGet('bb_reservations', [])
+        .filter((r) => r.barberId === barberId && r.date === dateIso);
       return new Set(list.filter((r) => r.status !== 'cancelled').map((r) => r.time));
     },
 
     async setStatus(res, status) {
       if (useFirebase) {
         await db.collection('reservations').doc(res._docId).update({ status });
+        if (status === 'cancelled') await this._freeSlot(res);
       } else {
         const all = lsGet('bb_reservations', []);
         const i = all.findIndex((r) => r.ref === res.ref);
@@ -309,6 +350,7 @@
     async remove(res) {
       if (useFirebase) {
         await db.collection('reservations').doc(res._docId).delete();
+        await this._freeSlot(res);
       } else {
         lsSet('bb_reservations', lsGet('bb_reservations', []).filter((r) => r.ref !== res.ref));
       }

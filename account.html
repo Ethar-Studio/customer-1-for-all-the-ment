@@ -115,7 +115,9 @@
         const services = (r.serviceIds || []).map((id) => serviceById(id) ? tv(serviceById(id).name) : id).join(' + ');
         const barber = barberById(r.barberId) ? tv(barberById(r.barberId).name) : r.barberId;
         const arming = cancelArm === r.ref;
-        const cancellable = r.status !== 'cancelled';
+        /* only upcoming (pending/confirmed) visits can be cancelled — a done
+           haircut is history and keeps its loyalty stamp */
+        const cancellable = r.status === 'pending' || r.status === 'confirmed';
         return `
           <div class="res-item">
             <div>

@@ -397,7 +397,11 @@
         (r.serviceIds || []).join(' + '),
         r.date, r.time, r.total, r.status,
         (r.notes || '').replace(/[\r\n,]+/g, ' '),
-      ].map((v) => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))).join('\n');
+      ].map((v) => {
+        let s = String(v ?? '').replace(/"/g, '""');
+        if (/^[=+\-@]/.test(s)) s = "'" + s;   // block Excel formula injection
+        return '"' + s + '"';
+      }).join(','))).join('\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
       a.download = 'for-all-men-reservations.csv';

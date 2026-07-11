@@ -77,7 +77,7 @@ window.LOCATION = {
     ar: 'حي العقربية، الخبر ٣٤٤٤٥',
   },
   plusCode: '852M+59',
-  phone: '+966 55 000 0000',
+  phone: '+966 55 779 8851',
   instagram: '@forallmen.sa',
   mapsQuery: 'All Men Salon صالون لكل الرجال للحلاقة, Al Aqrabiyah, Al Khobar',
   mapsLink: 'https://maps.app.goo.gl/pyUCiHUamSUmgTLU6',
